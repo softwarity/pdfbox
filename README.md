@@ -37,8 +37,8 @@ mvn spring-boot:run          # run from sources
 mvn package && java -jar target/pdfbox.jar
 ```
 
-> Locally the service uses whatever fonts are installed under `/usr/share/fonts`. For the full
-> bundled font set (and guaranteed offline behaviour) use the Docker image, which ships Noto fonts.
+> A broad Noto font set is bundled **inside the jar**, so multi-script rendering works offline
+> the same way whether you run the jar, the IDE, or the Docker image — no system fonts required.
 
 ## API
 
@@ -82,18 +82,21 @@ In Swagger UI, `POST /api/v1/pdf/upload` renders a file picker: choose a standal
 
 ### Fonts & exotic scripts
 
-All glyphs are **embedded** (required for PDF/A), so output is reproducible offline. The Docker image
-bundles the Noto family; the engine falls back **per glyph** through a default font stack, so a single
-document can freely mix Latin, Vietnamese, Hebrew, Arabic, Thai, Devanagari and Japanese without any
-configuration. To target a specific font explicitly, just use CSS:
+All glyphs are **embedded** (required for PDF/A), so output is reproducible offline. A broad Noto set
+is bundled inside the jar (`Noto Sans` for Latin/Vietnamese/Cyrillic/Greek, plus `Noto Sans Hebrew`,
+`Noto Sans Arabic`, `Noto Sans Thai`, `Noto Sans Devanagari` and `Noto Sans JP` for Japanese/CJK). The
+engine falls back **per glyph** through the default font stack, so a single document can freely mix
+those scripts without any configuration. To target a specific family explicitly, use CSS:
 
 ```html
 <p style="font-family:'Noto Sans Hebrew'">שלום עולם</p>
 <p style="font-family:'Noto Sans JP'">日本語のテキスト</p>
 ```
 
-Drop extra `.ttf` / `.otf` files into `/app/fonts` (Docker) or `./fonts` (local) and they are picked
-up automatically at startup.
+Need a script that isn't bundled (e.g. Korean, Chinese-specific shapes, Tamil)? Drop extra **`.ttf`**
+files into `/app/fonts` (Docker) or any directory listed in `PDFBOX_FONTS_DIRECTORIES`; they are picked
+up at startup. Note: the PDFBox renderer only embeds TrueType outlines, so OpenType/CFF `.otf` files
+are skipped — convert them to `.ttf` first.
 
 ### PDF/A conformance notes
 

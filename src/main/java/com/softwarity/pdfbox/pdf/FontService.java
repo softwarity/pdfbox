@@ -1,8 +1,10 @@
 package com.softwarity.pdfbox.pdf;
 
 import java.awt.Font;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 
+import com.openhtmltopdf.extend.FSSupplier;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
@@ -19,17 +22,27 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
 
 /**
  * Discovers font files once at startup and registers them on every render so generation is fully
- * offline and PDF/A compliant (all glyphs embedded). openhtmltopdf performs per-glyph fallback
- * across the registered families, so a single document can mix Latin, Vietnamese, Hebrew, Japanese…
+ * offline and PDF/A compliant (all glyphs embedded). A broad Noto set is bundled on the classpath so
+ * the application supports Latin, Vietnamese, Hebrew, Arabic, Thai, Devanagari, Japanese/CJK… out of
+ * the box; additional faces can be dropped into the configured filesystem directories. openhtmltopdf
+ * performs per-glyph fallback across the registered families listed in the CSS font stack.
+ *
+ * <p>Only TrueType ({@code .ttf}) fonts are registered: the PDFBox renderer cannot embed OpenType/CFF
+ * ({@code .otf}) outlines and throws while building the document, so such files are skipped.
  */
 @Service
 public class FontService {
 
     private static final Logger log = LoggerFactory.getLogger(FontService.class);
+
+    /** Bundled fonts live under {@code src/main/resources/fonts} and ship inside the jar. */
+    private static final String CLASSPATH_FONTS = "classpath*:fonts/**/*.ttf";
 
     private final List<String> directories;
     private final List<FontFace> faces = new ArrayList<>();
@@ -38,37 +51,72 @@ public class FontService {
         this.directories = directories;
     }
 
-    private record FontFace(File file, String family, int weight, FontStyle style) {}
+    /** A registrable face; backed either by a filesystem {@code file} or by in-memory {@code data}. */
+    private record FontFace(File file, byte[] data, String family, int weight, FontStyle style) {}
 
     @PostConstruct
     void discover() {
+        indexClasspathFonts();
+        indexFilesystemFonts();
+        log.info("Registered {} embeddable font face(s) ({} bundled on classpath, plus {})",
+                faces.size(), faces.stream().filter(f -> f.file() == null).count(), directories);
+    }
+
+    private void indexClasspathFonts() {
+        try {
+            for (Resource resource : new PathMatchingResourcePatternResolver().getResources(CLASSPATH_FONTS)) {
+                String name = resource.getFilename();
+                if (name == null) {
+                    continue;
+                }
+                try (InputStream in = resource.getInputStream()) {
+                    byte[] data = in.readAllBytes();
+                    String family = readFamily(new ByteArrayInputStream(data));
+                    String lower = name.toLowerCase(Locale.ROOT);
+                    faces.add(new FontFace(null, data, family, weightFromName(lower), styleFromName(lower)));
+                } catch (Exception e) {
+                    log.debug("Skipping unreadable bundled font {}: {}", name, e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Could not scan bundled fonts: {}", e.getMessage());
+        }
+    }
+
+    private void indexFilesystemFonts() {
         for (String dir : directories) {
             Path root = Paths.get(dir);
             if (!Files.isDirectory(root)) {
                 continue;
             }
             try (Stream<Path> walk = Files.walk(root)) {
-                walk.filter(Files::isRegularFile).forEach(this::index);
+                walk.filter(Files::isRegularFile).forEach(this::indexFile);
             } catch (IOException e) {
                 log.warn("Could not scan font directory {}: {}", root, e.getMessage());
             }
         }
-        log.info("Registered {} embeddable font face(s) from {}", faces.size(), directories);
     }
 
-    private void index(Path path) {
+    private void indexFile(Path path) {
         String name = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (!name.endsWith(".ttf") && !name.endsWith(".otf")) {
+        if (name.endsWith(".otf")) {
+            log.debug("Skipping OpenType/CFF font (unsupported by the PDF renderer): {}", path);
+            return;
+        }
+        if (!name.endsWith(".ttf")) {
             return;
         }
         File file = path.toFile();
         try {
-            Font awt = Font.createFont(Font.TRUETYPE_FONT, file);
-            String family = awt.getFamily(Locale.ENGLISH);
-            faces.add(new FontFace(file, family, weightFromName(name), styleFromName(name)));
+            String family = Font.createFont(Font.TRUETYPE_FONT, file).getFamily(Locale.ENGLISH);
+            faces.add(new FontFace(file, null, family, weightFromName(name), styleFromName(name)));
         } catch (Exception e) {
             log.debug("Skipping unreadable font {}: {}", path, e.getMessage());
         }
+    }
+
+    private static String readFamily(InputStream in) throws Exception {
+        return Font.createFont(Font.TRUETYPE_FONT, in).getFamily(Locale.ENGLISH);
     }
 
     private static int weightFromName(String name) {
@@ -93,7 +141,12 @@ public class FontService {
     /** Registers every discovered face on the builder, embedding only the glyphs actually used. */
     public void registerFonts(PdfRendererBuilder builder) {
         for (FontFace f : faces) {
-            builder.useFont(f.file(), f.family(), f.weight(), f.style(), true);
+            if (f.file() != null) {
+                builder.useFont(f.file(), f.family(), f.weight(), f.style(), true);
+            } else {
+                FSSupplier<InputStream> supplier = () -> new ByteArrayInputStream(f.data());
+                builder.useFont(supplier, f.family(), f.weight(), f.style(), true);
+            }
         }
     }
 

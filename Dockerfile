@@ -7,26 +7,17 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn -B -q -DskipTests package
 
-### CJK font stage ########################################################
-# Downloaded at build time so the runtime image works fully offline.
-FROM debian:bookworm-slim AS fonts
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl \
- && rm -rf /var/lib/apt/lists/*
-WORKDIR /cjk
-ARG NOTO_CJK_BASE=https://github.com/notofonts/noto-cjk/raw/main/Sans/SubsetOTF/JP
-RUN curl -fsSL -o NotoSansJP-Regular.otf "${NOTO_CJK_BASE}/NotoSansJP-Regular.otf" \
- && curl -fsSL -o NotoSansJP-Bold.otf    "${NOTO_CJK_BASE}/NotoSansJP-Bold.otf"
-
 ### Runtime stage #########################################################
 FROM eclipse-temurin:21-jre
-# Bundled fonts for offline generation: Noto core (Latin, Vietnamese, Hebrew,
-# Arabic, Thai, Devanagari, Greek, Cyrillic...) + Noto Sans JP (Japanese/CJK).
+# A broad Noto font set (Latin/Vietnamese, Hebrew, Arabic, Thai, Devanagari,
+# Japanese/CJK...) is bundled inside the jar, so the image needs no system fonts
+# for offline generation. curl is only here for the container HEALTHCHECK.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends fonts-noto-core fonts-noto-extra curl \
+ && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=fonts /cjk/*.otf /app/fonts/
+# Optional drop-in directory for extra TrueType fonts (see PDFBOX_FONTS_DIRECTORIES).
+RUN mkdir -p /app/fonts
 COPY --from=build /src/target/pdfbox.jar /app/pdfbox.jar
 
 EXPOSE 8080
