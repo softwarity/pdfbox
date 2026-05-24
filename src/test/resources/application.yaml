@@ -1,0 +1,5 @@
+pdfbox:
+  default-standard: PDF_A_1B
+  default-font-family: "'Liberation Sans', sans-serif"
+  fonts:
+    directories: target/test-classes/fonts

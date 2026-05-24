@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>pdfbox — HTML to PDF/A</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+        header { padding: 1.2rem 2rem; background: #1e293b; }
+        header h1 { margin: 0; font-size: 1.2rem; }
+        header small { color: #94a3b8; }
+        main { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 1.5rem 2rem; max-width: 960px; }
+        textarea { width: 100%; min-height: 320px; box-sizing: border-box; font-family: ui-monospace, monospace;
+                   font-size: 13px; background: #020617; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
+        .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+        select, button { font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 1px solid #334155; }
+        select { background: #020617; color: #e2e8f0; }
+        button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        #status { color: #94a3b8; }
+        a { color: #60a5fa; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>pdfbox</h1>
+    <small>HTML &rarr; PDF/A, powered by <a href="https://github.com/librepdf/openpdf">OpenPDF</a></small>
+</header>
+<main>
+    <textarea id="html"><h1>Hello PDF/A</h1>
+<p>Latin, Tiếng Việt, עברית, 日本語</p>
+<p style="font-family:'Noto Sans Hebrew'">עברית בעברית</p>
+<p style="font-family:'Noto Sans CJK JP'">これは日本語です</p></textarea>
+    <div class="row">
+        <label>Standard:
+            <select id="standard"></select>
+        </label>
+        <button id="go">Generate PDF</button>
+        <span id="status"></span>
+    </div>
+</main>
+<script>
+    const sel = document.getElementById('standard');
+    fetch('api/v1/standards').then(r => r.json()).then(list => {
+        list.forEach(s => {
+            const o = document.createElement('option');
+            o.value = s; o.textContent = s;
+            if (s === 'PDF_A_1B') o.selected = true;
+            sel.appendChild(o);
+        });
+    });
+
+    document.getElementById('go').addEventListener('click', async () => {
+        const status = document.getElementById('status');
+        status.textContent = 'Generating…';
+        try {
+            const res = await fetch('api/v1/pdf?standard=' + encodeURIComponent(sel.value), {
+                method: 'POST',
+                headers: {'Content-Type': 'text/html'},
+                body: document.getElementById('html').value
+            });
+            if (!res.ok) { status.textContent = 'Error: ' + (await res.text()); return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'document.pdf'; a.click();
+            URL.revokeObjectURL(url);
+            status.textContent = 'Done (' + (blob.size / 1024).toFixed(1) + ' KB)';
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+        }
+    });
+</script>
+</body>
+</html>
