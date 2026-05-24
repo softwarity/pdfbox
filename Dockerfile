@@ -31,6 +31,8 @@ COPY --from=build /src/target/pdfbox.jar /app/pdfbox.jar
 
 EXPOSE 8080
 ENV JAVA_OPTS=""
+# Optional base path prefix for every route (must start with '/'); empty by default.
+ENV PDFBOX_BASE_PATH=""
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-  CMD curl -fsS http://localhost:8080/actuator/health || exit 1
+  CMD curl -fsS "http://localhost:8080${PDFBOX_BASE_PATH}/actuator/health" || exit 1
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/pdfbox.jar"]
