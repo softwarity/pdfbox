@@ -9,38 +9,53 @@
         header { padding: 1.2rem 2rem; background: #1e293b; }
         header h1 { margin: 0; font-size: 1.2rem; }
         header small { color: #94a3b8; }
-        main { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 1.5rem 2rem; max-width: 960px; }
-        textarea { width: 100%; min-height: 320px; box-sizing: border-box; font-family: ui-monospace, monospace;
+        main { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1.5rem 2rem; align-items: stretch; }
+        @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+        .panel { display: flex; flex-direction: column; gap: 0.8rem; min-width: 0; }
+        textarea { width: 100%; flex: 1; min-height: 320px; box-sizing: border-box; font-family: ui-monospace, monospace;
                    font-size: 13px; background: #020617; color: #e2e8f0; border: 1px solid #334155; border-radius: 8px; padding: 12px; }
         .row { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
         select, button { font-size: 14px; padding: 8px 12px; border-radius: 8px; border: 1px solid #334155; }
         select { background: #020617; color: #e2e8f0; }
         button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
         button:hover { background: #1d4ed8; }
+        button:disabled { background: #334155; cursor: default; }
         #status { color: #94a3b8; }
+        iframe { width: 100%; min-height: 480px; flex: 1; border: 1px solid #334155; border-radius: 8px; background: #fff; }
         a { color: #60a5fa; }
     </style>
 </head>
 <body>
 <header>
     <h1>pdfbox</h1>
-    <small>HTML &rarr; PDF/A, powered by <a href="https://github.com/librepdf/openpdf">OpenPDF</a></small>
+    <small>HTML &rarr; PDF/A, powered by <a href="https://github.com/danfickle/openhtmltopdf">openhtmltopdf</a></small>
 </header>
 <main>
-    <textarea id="html"><h1>Hello PDF/A</h1>
+    <section class="panel">
+        <textarea id="html"><h1>Hello PDF/A</h1>
 <p>Latin, Tiếng Việt, עברית, العربية, ไทย, हिन्दी, 日本語</p>
 <p style="font-family:'Noto Sans Hebrew'">עברית בעברית</p>
-<p style="font-family:'Noto Sans JP'">これは日本語です</p></textarea>
-    <div class="row">
-        <label>Standard:
-            <select id="standard"></select>
-        </label>
-        <button id="go">Generate PDF</button>
-        <span id="status"></span>
-    </div>
+<p style="font-family:'Noto Sans CJK JP'">これは日本語です</p></textarea>
+        <div class="row">
+            <label>Standard:
+                <select id="standard"></select>
+            </label>
+            <button id="preview">Preview &darr;</button>
+            <button id="external">Open in new tab &nearr;</button>
+            <span id="status"></span>
+        </div>
+    </section>
+    <section class="panel">
+        <iframe id="viewer" title="PDF preview"></iframe>
+    </section>
 </main>
 <script>
     const sel = document.getElementById('standard');
+    const status = document.getElementById('status');
+    const preview = document.getElementById('preview');
+    const external = document.getElementById('external');
+    let currentUrl = null;
+
     fetch('api/v1/standards').then(r => r.json()).then(list => {
         list.forEach(s => {
             const o = document.createElement('option');
@@ -50,8 +65,9 @@
         });
     });
 
-    document.getElementById('go').addEventListener('click', async () => {
-        const status = document.getElementById('status');
+    // Generates the PDF and returns a fresh blob URL (revoking the previous one), or null on error.
+    async function generate() {
+        preview.disabled = external.disabled = true;
         status.textContent = 'Generating…';
         try {
             const res = await fetch('api/v1/pdf?standard=' + encodeURIComponent(sel.value), {
@@ -59,16 +75,32 @@
                 headers: {'Content-Type': 'text/html'},
                 body: document.getElementById('html').value
             });
-            if (!res.ok) { status.textContent = 'Error: ' + (await res.text()); return; }
+            if (!res.ok) { status.textContent = 'Error: ' + (await res.text()); return null; }
             const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'document.pdf'; a.click();
-            URL.revokeObjectURL(url);
+            if (currentUrl) URL.revokeObjectURL(currentUrl);
+            currentUrl = URL.createObjectURL(blob);
             status.textContent = 'Done (' + (blob.size / 1024).toFixed(1) + ' KB)';
+            return currentUrl;
         } catch (e) {
             status.textContent = 'Error: ' + e.message;
+            return null;
+        } finally {
+            preview.disabled = external.disabled = false;
         }
+    }
+
+    preview.addEventListener('click', async () => {
+        const url = await generate();
+        if (url) document.getElementById('viewer').src = url;
+    });
+
+    external.addEventListener('click', async () => {
+        // Open the tab synchronously (inside the user gesture) so it is not blocked, then point it
+        // at the blob URL once generation finishes.
+        const tab = window.open('', '_blank');
+        const url = await generate();
+        if (url && tab) tab.location = url;
+        else if (tab) tab.close();
     });
 </script>
 </body>
