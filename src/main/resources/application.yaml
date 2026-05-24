@@ -9,6 +9,10 @@ spring:
 
 server:
   port: 8080
+  servlet:
+    # Optional base path prefixed to every route. Must start with '/'. Empty by default (served at
+    # the root). E.g. PDFBOX_BASE_PATH=/pdfbox exposes POST /pdfbox/api/v1/pdf, /pdfbox/swagger-ui...
+    context-path: ${PDFBOX_BASE_PATH:}
   tomcat:
     max-http-form-post-size: 50MB
     max-swallow-size: 50MB
@@ -23,6 +27,15 @@ management:
       probes:
         enabled: true
 
+springdoc:
+  # OpenAPI description stays available everywhere (handy for client generation).
+  api-docs:
+    path: /v3/api-docs
+  # Swagger UI is a dev-only convenience: disabled here, re-enabled by the `dev` profile below.
+  swagger-ui:
+    enabled: false
+    path: /swagger-ui.html
+
 pdfbox:
   # Default output standard when the request does not specify one.
   default-standard: PDF_A_1B
@@ -32,3 +45,15 @@ pdfbox:
   # Comma-separated directories scanned recursively at startup for embeddable .ttf / .otf fonts.
   fonts:
     directories: /app/fonts,/usr/share/fonts,fonts
+
+---
+# Development profile: enables the interactive Swagger UI at /swagger-ui.html.
+# Activate with `--spring.profiles.active=dev` or `SPRING_PROFILES_ACTIVE=dev`.
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+springdoc:
+  swagger-ui:
+    enabled: true

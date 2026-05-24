@@ -45,12 +45,40 @@ mvn package && java -jar target/pdfbox.jar
 | Method & path | Description |
 |---|---|
 | `POST /api/v1/pdf` | Body = HTML. Query params: `standard` (see below, default `PDF_A_1B`), `filename` (default `document.pdf`). Returns `application/pdf`. |
+| `POST /api/v1/pdf/upload` | `multipart/form-data`: `file` = a standalone HTML file, plus `standard` and `filename`. Returns `application/pdf`. This is the form Swagger UI shows as a file picker. |
 | `GET /api/v1/standards` | Lists the supported standards. |
+| `GET /v3/api-docs` | OpenAPI 3 description (JSON). |
+| `GET /swagger-ui.html` | Interactive Swagger UI — **dev profile only** (see below). |
 | `GET /actuator/health` | Health probe. |
 | `GET /` | Browser test page. |
 
 Supported `standard` values: `NONE`, `PDF_A_1A`, `PDF_A_1B`, `PDF_A_2A`, `PDF_A_2B`, `PDF_A_2U`,
 `PDF_A_3A`, `PDF_A_3B`, `PDF_A_3U`.
+
+```bash
+# Upload an HTML file (no JavaScript — it is not executed) and get a PDF/A-2b back:
+curl -X POST "http://localhost:8080/api/v1/pdf/upload" \
+     -F "file=@invoice.html;type=text/html" \
+     -F "standard=PDF_A_2B" \
+     -o invoice.pdf
+```
+
+### OpenAPI & Swagger UI
+
+The OpenAPI 3 description is always served at **`/v3/api-docs`** (handy for generating clients).
+
+The interactive **Swagger UI is a dev-only convenience** and is **disabled by default**. Enable it by
+activating the `dev` profile, then browse to <http://localhost:8080/swagger-ui.html>:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# or, on the packaged jar / Docker:
+SPRING_PROFILES_ACTIVE=dev java -jar target/pdfbox.jar
+docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev ghcr.io/softwarity/pdfbox:latest
+```
+
+In Swagger UI, `POST /api/v1/pdf/upload` renders a file picker: choose a standalone HTML file, pick a
+`standard`, and the response download is your PDF.
 
 ### Fonts & exotic scripts
 
@@ -89,7 +117,26 @@ Sensible defaults mean you normally configure nothing. If needed, override via e
 | `PDFBOX_DEFAULT_STANDARD` | `PDF_A_1B` | Standard used when the request omits `standard`. |
 | `PDFBOX_FONTS_DIRECTORIES` | `/app/fonts,/usr/share/fonts,fonts` | Comma-separated font scan directories. |
 | `PDFBOX_DEFAULT_FONT_FAMILY` | Noto stack | CSS font stack applied when the HTML sets none. |
+| `PDFBOX_BASE_PATH` | _(empty)_ | Base path prefixed to **every** route, set at startup. Must start with `/`. |
+| `SPRING_PROFILES_ACTIVE` | _(none)_ | Set to `dev` to enable Swagger UI. |
 | `JAVA_OPTS` | _(empty)_ | Extra JVM flags. |
+
+### Base path (set at launch)
+
+The base path is a **startup parameter**, fixed for the lifetime of the process — not a per-request
+value. Provide it at launch as an environment variable or a Spring command-line argument:
+
+```bash
+# Environment variable
+PDFBOX_BASE_PATH=/pdfbox java -jar target/pdfbox.jar
+docker run --rm -p 8080:8080 -e PDFBOX_BASE_PATH=/pdfbox ghcr.io/softwarity/pdfbox:latest
+
+# ...or as a launch argument
+java -jar target/pdfbox.jar --server.servlet.context-path=/pdfbox
+```
+
+Every route then lives under that prefix, e.g. `POST http://localhost:8080/pdfbox/api/v1/pdf`,
+`GET http://localhost:8080/pdfbox/v3/api-docs`, `GET http://localhost:8080/pdfbox/actuator/health`.
 
 ## How it works
 
