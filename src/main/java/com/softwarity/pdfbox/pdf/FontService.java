@@ -11,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import com.openhtmltopdf.extend.FSSupplier;
@@ -43,6 +44,15 @@ public class FontService {
 
     /** Bundled fonts live under {@code src/main/resources/fonts} and ship inside the jar. */
     private static final String CLASSPATH_FONTS = "classpath*:fonts/**/*.ttf";
+
+    /**
+     * Extra family names registered as aliases for a discovered family, so HTML can reference a font
+     * under the name people commonly type. The bundled {@code Noto Sans JP} also answers to the
+     * canonical {@code Noto Sans CJK *} names (their Han glyphs are shared) instead of rendering tofu.
+     */
+    private static final Map<String, List<String>> FAMILY_ALIASES = Map.of(
+            "Noto Sans JP", List.of("Noto Sans CJK JP", "Noto Sans CJK SC", "Noto Sans CJK TC",
+                    "Noto Sans CJK KR", "Noto Sans CJK HK"));
 
     private final List<String> directories;
     private final List<FontFace> faces = new ArrayList<>();
@@ -141,12 +151,19 @@ public class FontService {
     /** Registers every discovered face on the builder, embedding only the glyphs actually used. */
     public void registerFonts(PdfRendererBuilder builder) {
         for (FontFace f : faces) {
-            if (f.file() != null) {
-                builder.useFont(f.file(), f.family(), f.weight(), f.style(), true);
-            } else {
-                FSSupplier<InputStream> supplier = () -> new ByteArrayInputStream(f.data());
-                builder.useFont(supplier, f.family(), f.weight(), f.style(), true);
+            register(builder, f, f.family());
+            for (String alias : FAMILY_ALIASES.getOrDefault(f.family(), List.of())) {
+                register(builder, f, alias);
             }
+        }
+    }
+
+    private static void register(PdfRendererBuilder builder, FontFace f, String family) {
+        if (f.file() != null) {
+            builder.useFont(f.file(), family, f.weight(), f.style(), true);
+        } else {
+            FSSupplier<InputStream> supplier = () -> new ByteArrayInputStream(f.data());
+            builder.useFont(supplier, family, f.weight(), f.style(), true);
         }
     }
 
