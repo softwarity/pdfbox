@@ -89,7 +89,8 @@ the full Noto bundle isn't loaded during tests. Tests assert PDF structure by in
 ## CI / release
 
 - `.github/workflows/ci.yml`: `mvn verify` on every push/PR, then builds & pushes a Docker image to
-  GHCR on push.
+  Docker Hub (`docker.io/softwarity/pdfbox`) on push. Requires repo secrets `DOCKERHUB_USERNAME`
+  and `DOCKERHUB_RW` (a Docker Hub Read & Write access token).
 - `.github/workflows/release.yml`: manual `workflow_dispatch` that bumps a semver tag on `main`,
   which triggers the Docker release workflow.
 - `Dockerfile` is a two-stage Maven→JRE build; `/app/fonts` is the drop-in dir for extra fonts.

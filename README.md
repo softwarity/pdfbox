@@ -12,7 +12,7 @@ POST  your HTML  ──►  pdfbox  ──►  PDF/A binary
 ## Quick start (Docker)
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/softwarity/pdfbox:latest
+docker run --rm -p 8080:8080 softwarity/pdfbox:latest
 ```
 
 Then open <http://localhost:8080> for a small test page, or call the API directly:
@@ -74,7 +74,7 @@ activating the `dev` profile, then browse to <http://localhost:8080/swagger-ui.h
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 # or, on the packaged jar / Docker:
 SPRING_PROFILES_ACTIVE=dev java -jar target/pdfbox.jar
-docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev ghcr.io/softwarity/pdfbox:latest
+docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev softwarity/pdfbox:latest
 ```
 
 In Swagger UI, `POST /api/v1/pdf/upload` renders a file picker: choose a standalone HTML file, pick a
@@ -132,7 +132,7 @@ value. Provide it at launch as an environment variable or a Spring command-line 
 ```bash
 # Environment variable
 PDFBOX_BASE_PATH=/pdfbox java -jar target/pdfbox.jar
-docker run --rm -p 8080:8080 -e PDFBOX_BASE_PATH=/pdfbox ghcr.io/softwarity/pdfbox:latest
+docker run --rm -p 8080:8080 -e PDFBOX_BASE_PATH=/pdfbox softwarity/pdfbox:latest
 
 # ...or as a launch argument
 java -jar target/pdfbox.jar --server.servlet.context-path=/pdfbox
