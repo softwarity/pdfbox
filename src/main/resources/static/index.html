@@ -32,10 +32,31 @@
 </header>
 <main>
     <section class="panel">
-        <textarea id="html"><h1>Hello PDF/A</h1>
-<p>Latin, Tiếng Việt, עברית, العربية, ไทย, हिन्दी, 日本語</p>
-<p style="font-family:'Noto Sans Hebrew'">עברית בעברית</p>
-<p style="font-family:'Noto Sans CJK JP'">これは日本語です</p></textarea>
+        <textarea id="html"><style>
+  body { font-family: 'Noto Sans', sans-serif; color: #1f2937; margin: 24px; }
+  h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 13px; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 10px; text-align: left; }
+  th { background: #2563eb; color: #fff; }
+  tr:nth-child(even) { background: #f1f5f9; }
+  .muted { color: #64748b; font-size: 12px; margin-top: 16px; }
+</style>
+<h1>Hello PDF/A</h1>
+<p>One document, many scripts &mdash; fonts are embedded for PDF/A.</p>
+<table>
+  <thead>
+    <tr><th>Language</th><th>Sample</th><th>Code</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Vietnamese</td><td>Tiếng Việt</td><td>vi</td></tr>
+    <tr><td>Hebrew</td><td style="font-family:'Noto Sans Hebrew'">עברית בעברית</td><td>he</td></tr>
+    <tr><td>Arabic</td><td style="font-family:'Noto Sans Arabic'">مرحبا بالعالم</td><td>ar</td></tr>
+    <tr><td>Thai</td><td style="font-family:'Noto Sans Thai'">สวัสดีชาวโลก</td><td>th</td></tr>
+    <tr><td>Hindi</td><td style="font-family:'Noto Sans Devanagari'">नमस्ते दुनिया</td><td>hi</td></tr>
+    <tr><td>Japanese</td><td style="font-family:'Noto Sans CJK JP'">これは日本語です</td><td>ja</td></tr>
+  </tbody>
+</table>
+<p class="muted">Generated with pdfbox &middot; openhtmltopdf + Apache PDFBox</p></textarea>
         <div class="row">
             <label>Standard:
                 <select id="standard"></select>
