@@ -1,6 +1,10 @@
 spring:
   application:
     name: pdfbox
+  # Optionally pull local-only overrides (e.g. PDFBOX_BASE_PATH) from an untracked
+  # local.properties at the working directory. 'optional:' = no error when absent (prod).
+  config:
+    import: "optional:file:local.properties"
   mvc:
     async:
       request-timeout: 120000
