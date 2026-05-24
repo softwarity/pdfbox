@@ -38,7 +38,7 @@ public class PdfGenerationService {
 
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
-        fontService.registerFonts(builder);
+        fontService.registerFonts(builder, html);
 
         if (standard.isPdfA()) {
             builder.usePdfAConformance(standard.conformance());

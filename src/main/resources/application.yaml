@@ -43,12 +43,28 @@ springdoc:
 pdfbox:
   # Default output standard when the request does not specify one.
   default-standard: PDF_A_1B
+  # Fallback document language injected as <html lang> when the source omits it. PDF/UA (the "A"
+  # levels) requires a language; set this to the language you actually generate most often.
+  default-lang: en
+  # Fallback <title> injected when the source has none (and no usable <h1>/<h2>/<h3>). PDF/UA needs
+  # a document title; an accurate source <title> always wins over this generic default.
+  default-title: Document
   # Default font stack applied when the HTML sets none. openhtmltopdf falls back per glyph through
   # this list, so a single document can mix Latin, Vietnamese, Hebrew, Japanese... out of the box.
-  default-font-family: "'Noto Sans','Noto Sans Hebrew','Noto Sans Arabic','Noto Sans Thai','Noto Sans Devanagari','Noto Sans JP','Noto Sans CJK JP',sans-serif"
+  # The list names every supported script; FontService only registers the few a given document
+  # actually contains (by Unicode block), so naming all of them here costs nothing per render — an
+  # unused family is simply never loaded. CJK families (JP/KR/SC/TC) are picked per document from lang.
+  default-font-family: "'Noto Sans','Noto Sans Hebrew','Noto Sans Arabic','Noto Sans Thaana','Noto Sans Devanagari','Noto Sans Bengali','Noto Sans Gurmukhi','Noto Sans Gujarati','Noto Sans Oriya','Noto Sans Tamil','Noto Sans Telugu','Noto Sans Kannada','Noto Sans Malayalam','Noto Sans Sinhala','Noto Sans Thai','Noto Sans Lao','Noto Sans Myanmar','Noto Sans Georgian','Noto Sans Armenian','Noto Sans Ethiopic','Noto Sans Khmer','Noto Sans JP','Noto Sans KR','Noto Sans SC','Noto Sans TC','Noto Sans Symbols','Noto Sans Symbols2','Noto Sans Math','Noto Emoji',sans-serif"
   # Comma-separated directories scanned recursively at startup for embeddable .ttf / .otf fonts.
   fonts:
     directories: /app/fonts,/usr/share/fonts,fonts
+
+logging:
+  level:
+    # The bundled Noto CJK faces carry a cmap format 14 (Unicode variation sequences) table that
+    # PDFBox cannot read; it logs a WARN per face on every render. Harmless (normal glyphs embed
+    # fine, no PDF/A impact) and unfixable without re-mastering the .ttf, so silence just this one.
+    org.apache.fontbox.ttf.CmapSubtable: error
 
 ---
 # Development profile: enables the interactive Swagger UI at /swagger-ui.html.

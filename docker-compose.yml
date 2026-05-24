@@ -1,0 +1,11 @@
+services:
+  pdfbox:
+    image: softwarity/pdfbox
+    environment:
+      - PDFBOX_BASE_PATH=/pdfbox
+    networks:
+      - neo_network
+    ports:
+      - "8080:8080"
+networks:
+  neo_network:

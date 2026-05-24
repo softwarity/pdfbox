@@ -32,8 +32,12 @@ HTML ──HtmlNormalizer(jsoup)──► W3C DOM ──openhtmltopdf/PdfRendere
 ```
 
 - **`HtmlNormalizer`** parses possibly-malformed HTML with jsoup, injects a UTF-8 `<meta>` and a
-  lowest-priority default `font-family` style (prepended so author CSS wins), then converts to the
-  W3C DOM that openhtmltopdf consumes. JavaScript is never executed.
+  lowest-priority default `font-family` style (prepended so author CSS wins), and — as a guard-rail
+  for the accessible "A" levels (PDF/UA) — fills in a `<title>` (from the source title, else first
+  `<h1>/<h2>/<h3>`, else `pdfbox.default-title`), an `<html lang>` (`pdfbox.default-lang`) and a
+  `<meta name="subject">` when the source omits them. Note it must be `subject`, not `description`:
+  openhtmltopdf maps the PDF/UA description to the PDF *Subject* (`<meta name="subject">`). Explicit
+  source values always win. Then converts to the W3C DOM that openhtmltopdf consumes. JS never runs.
 - **`PdfGenerationService`** drives `PdfRendererBuilder`: fast mode, register fonts, and for PDF/A
   set conformance + embed the sRGB output intent (+ PDF/UA tagging for the "A" levels).
 - **`normalizeVersion()`** is a PDFBox post-pass that only runs for PDF/A. It re-saves with
@@ -52,22 +56,37 @@ is accessible/tagged ("A"). To add or change a standard, edit this enum; the con
 
 ## Fonts (the tricky part)
 
-`FontService` discovers faces **once at startup** (`@PostConstruct`) from two sources and
-re-registers them on every render so all glyphs get embedded (PDF/A requirement):
-1. **Bundled** `.ttf` under `src/main/resources/fonts` (a broad Noto set), loaded from the classpath
-   into memory — these ship inside the jar.
-2. **Filesystem** dirs from `pdfbox.fonts.directories` (`/app/fonts,/usr/share/fonts,fonts`),
-   walked recursively.
+`FontService` **indexes** faces once at startup (`@PostConstruct`) from the classpath (`.ttf` under
+`src/main/resources/fonts`, in the jar) and the filesystem dirs in `pdfbox.fonts.directories`
+(`/app/fonts,/usr/share/fonts,fonts`). It then **registers a per-render subset** on the builder via
+`registerFonts(builder, html)` — not the whole set.
 
-Hard constraints to respect:
-- **Only `.ttf` is registered.** OpenType/CFF `.otf` files are deliberately skipped — the PDFBox
-  renderer cannot embed CFF outlines and throws mid-document. Don't "fix" this by adding `.otf`.
-- Weight and italic/normal style are inferred **from the filename** (`weightFromName` /
-  `styleFromName`), not the font metadata.
-- `FAMILY_ALIASES` maps the bundled `Noto Sans JP` to the canonical `Noto Sans CJK *` names so CJK
-  text doesn't render as tofu when CSS asks for the CJK family.
-- Per-glyph fallback walks the CSS font stack (the default stack lives in `application.yaml` →
-  `pdfbox.default-font-family`), which is why one document can mix Latin/Hebrew/Arabic/Thai/CJK.
+The non-obvious mechanics, all learned the hard way (don't regress them):
+- **openhtmltopdf eagerly parses every font it is told about**, on *every* render — both the fallback
+  store and every family named in the CSS stack. Registering all faces each time re-parses tens of MB
+  per request. Hence per-render selection.
+- **Per-render selection by content** (`detectScriptFamilies`): scan the source's codepoints, and for
+  each non-Latin Unicode block register only the matching `Noto Sans <Script>` (see `SCRIPT_FAMILIES`,
+  a family + `IntPredicate` over codepoints). Latin/Cyrillic/Greek are always covered by the always-on
+  families. A family named in `pdfbox.default-font-family` but **not registered** is simply ignored by
+  openhtmltopdf (not loaded) — that's why the default stack can list every script for free.
+- **Shared CJK Han** (U+4E00…) is ambiguous across JP/KR/SC/TC; `hanFamily` picks the variant from the
+  document `lang` (regex over `lang=`), defaulting to Japanese.
+- **Fallback store = exactly `Noto Sans`/`Noto Serif`/`Noto Sans Mono`** (`FALLBACK_FAMILIES`,
+  `FSFontUseCase.FALLBACK_PRE`). It's eager, so keep it tiny. A non-empty fallback is what silences
+  the per-run "Font list is empty" warning and maps the CSS generics `serif`/`sans-serif`/`monospace`
+  — openhtmltopdf does **not** consult a font registered under a generic *name*, so the generic mapping
+  must go through the fallback store, not `FAMILY_ALIASES`.
+- **Only `.ttf` is registered.** OpenType/CFF `.otf` is skipped — PDFBox can't embed CFF and throws.
+- **Variable fonts embed at their default master.** For Noto CJK that's Thin, so the Docker
+  `cjk-fonts` stage freezes them to a static `wght=400` instance with `fontTools varLib.instancer
+  --update-name-table` before placing them under `/usr/share/fonts`. Don't ship a raw CJK VF.
+- The big CJK faces are **not in the jar** — they live in the image (filesystem). The bare jar covers
+  everything except CJK unless you add CJK `.ttf` yourself.
+- Weight/italic are inferred **from the filename** (`weightFromName`/`styleFromName`), not metadata.
+- Adding a script: drop its `.ttf` in the jar (light) or image (heavy), add a `SCRIPT_FAMILIES` entry
+  with its Unicode block, and name it in `pdfbox.default-font-family`. Verify the family name Java
+  reports (`fc-scan`) — e.g. it's `Noto Sans Symbols2`, no space.
 
 ## Web layer
 

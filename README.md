@@ -82,21 +82,40 @@ In Swagger UI, `POST /api/v1/pdf/upload` renders a file picker: choose a standal
 
 ### Fonts & exotic scripts
 
-All glyphs are **embedded** (required for PDF/A), so output is reproducible offline. A broad Noto set
-is bundled inside the jar (`Noto Sans` for Latin/Vietnamese/Cyrillic/Greek, plus `Noto Sans Hebrew`,
-`Noto Sans Arabic`, `Noto Sans Thai`, `Noto Sans Devanagari` and `Noto Sans JP` for Japanese/CJK). The
-engine falls back **per glyph** through the default font stack, so a single document can freely mix
-those scripts without any configuration. To target a specific family explicitly, use CSS:
+All glyphs are **embedded** (required for PDF/A), so output is reproducible offline. A very broad Noto
+set ships with the service: `Noto Sans` (Latin/Vietnamese/Cyrillic/Greek), `Noto Serif`, `Noto Sans
+Mono`, and per-script faces for Hebrew, Arabic, Thaana, all the major Indic scripts (Devanagari,
+Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam, Sinhala), Thai, Lao, Myanmar,
+Khmer, Georgian, Armenian, Ethiopic, Japanese, Korean, Chinese (Simplified & Traditional), plus
+symbols/math and monochrome emoji. The CSS generic families `sans-serif`/`serif`/`monospace` resolve
+to `Noto Sans`/`Noto Serif`/`Noto Sans Mono`, so a stack ending in a generic (the usual
+`font-family: Arial, sans-serif`) always lands on a real embedded face.
+
+You normally write nothing: a single document can mix scripts freely and the right faces are chosen
+automatically. To force a family explicitly, use CSS:
 
 ```html
 <p style="font-family:'Noto Sans Hebrew'">שלום עולם</p>
 <p style="font-family:'Noto Sans JP'">日本語のテキスト</p>
 ```
 
-Need a script that isn't bundled (e.g. Korean, Chinese-specific shapes, Tamil)? Drop extra **`.ttf`**
-files into `/app/fonts` (Docker) or any directory listed in `PDFBOX_FONTS_DIRECTORIES`; they are picked
-up at startup. Note: the PDFBox renderer only embeds TrueType outlines, so OpenType/CFF `.otf` files
-are skipped — convert them to `.ttf` first.
+**Per-document font selection.** openhtmltopdf re-parses every font it is told about on *every*
+render, so registering the whole set each time would re-parse tens of MB per request. Instead the
+service scans the source for the Unicode blocks it actually contains and only registers the matching
+faces — a Latin-only PDF never pays to parse Thai, Devanagari or CJK. Shared CJK Han ideographs are
+disambiguated to Japanese / Korean / Simplified / Traditional from the document `lang`
+(`ja` / `ko` / `zh-Hans` / `zh-Hant`), defaulting to Japanese. So **declare `lang`** on elements
+mixing Chinese/Japanese/Korean to get the correct Han shapes.
+
+**Where the fonts live.** The light faces are bundled in the jar. The big CJK faces (Korean, Chinese
+SC/TC) are shipped as filesystem fonts in the Docker image under `/usr/share/fonts` instead, to keep
+the jar small — running the bare jar therefore covers everything *except* CJK unless you add CJK
+`.ttf` files yourself. Need another script, or CJK when running the jar directly? Drop extra **`.ttf`**
+files into `/app/fonts` (Docker) or any directory in `PDFBOX_FONTS_DIRECTORIES`; they are indexed at
+startup. Two caveats: the PDFBox renderer only embeds TrueType outlines, so OpenType/CFF `.otf` files
+are skipped (convert to `.ttf` first); and a variable font is embedded at its *default* master, so
+freeze it to a static instance first (the image does this for the Noto CJK variable fonts, forcing
+`wght=400`, otherwise they would embed as Thin).
 
 ### PDF/A conformance notes
 
@@ -106,6 +125,11 @@ are skipped — convert them to `.ttf` first.
   cross-reference table.
 - **`A` (accessible/tagged) levels** additionally enable tagged/PDF-UA output, whose validity depends
   on the *input* HTML being accessible (document language, image `alt` text, proper heading order…).
+  As a safety net the service injects a `<title>`, `<html lang>` and `<meta name="subject">` (the
+  PDF/UA description maps to the PDF *Subject*, i.e. `<meta name="subject">`, not `description`) when
+  the source omits them (see `PDFBOX_DEFAULT_LANG` / `PDFBOX_DEFAULT_TITLE`), but for genuinely
+  accessible output you should supply accurate ones — generic defaults satisfy the validator, not a
+  screen-reader user.
 - Always validate critical output with [veraPDF](https://verapdf.org/):
   ```bash
   verapdf --flavour 1b document.pdf
@@ -120,6 +144,8 @@ Sensible defaults mean you normally configure nothing. If needed, override via e
 | `PDFBOX_DEFAULT_STANDARD` | `PDF_A_1B` | Standard used when the request omits `standard`. |
 | `PDFBOX_FONTS_DIRECTORIES` | `/app/fonts,/usr/share/fonts,fonts` | Comma-separated font scan directories. |
 | `PDFBOX_DEFAULT_FONT_FAMILY` | Noto stack | CSS font stack applied when the HTML sets none. |
+| `PDFBOX_DEFAULT_LANG` | `en` | `<html lang>` injected when the source omits it (required by the accessible "A" levels / PDF/UA). |
+| `PDFBOX_DEFAULT_TITLE` | `Document` | `<title>` injected when the source has none and no usable `<h1>/<h2>/<h3>` (required by PDF/UA). |
 | `PDFBOX_BASE_PATH` | _(empty)_ | Base path prefixed to **every** route, set at startup. Must start with `/`. |
 | `SPRING_PROFILES_ACTIVE` | _(none)_ | Set to `dev` to enable Swagger UI. |
 | `JAVA_OPTS` | _(empty)_ | Extra JVM flags. |
