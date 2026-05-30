@@ -55,15 +55,21 @@ import { CodeComponent } from '../code/code.component';
         <tr><th>Dependency</th><th>Role</th><th>License</th></tr>
       </thead>
       <tbody>
-        <tr><td><a href="https://github.com/openhtmltopdf/openhtmltopdf" target="_blank" rel="noopener">openhtmltopdf</a></td><td>HTML/CSS → PDF/A &amp; PDF/UA engine</td><td>LGPL-2.1</td></tr>
-        <tr><td><a href="https://github.com/flyingsaucerproject/flyingsaucer" target="_blank" rel="noopener">Flying Saucer</a></td><td>The renderer openhtmltopdf forked from</td><td>LGPL-2.1</td></tr>
-        <tr><td><a href="https://pdfbox.apache.org/" target="_blank" rel="noopener">Apache PDFBox</a></td><td>Low-level PDF library</td><td>Apache-2.0</td></tr>
-        <tr><td><a href="https://jsoup.org/" target="_blank" rel="noopener">jsoup</a></td><td>Lenient HTML parser</td><td>MIT</td></tr>
-        <tr><td><a href="https://spring.io/projects/spring-boot" target="_blank" rel="noopener">Spring Boot</a></td><td>Application framework &amp; HTTP layer</td><td>Apache-2.0</td></tr>
-        <tr><td><a href="https://fonts.google.com/noto" target="_blank" rel="noopener">Noto fonts</a></td><td>Bundled multi-script font set</td><td>OFL-1.1</td></tr>
-        <tr><td><a href="https://verapdf.org/" target="_blank" rel="noopener">veraPDF</a></td><td>PDF/A validation (for verifying output)</td><td>—</td></tr>
+        <tr><td><a href="https://github.com/openhtmltopdf/openhtmltopdf" target="_blank" rel="noopener">openhtmltopdf</a> (<code>openhtmltopdf-pdfbox</code>)</td><td>HTML/CSS → PDF/A &amp; PDF/UA engine — a fork of <a href="https://github.com/flyingsaucerproject/flyingsaucer" target="_blank" rel="noopener">Flying Saucer</a></td><td>LGPL-2.1</td></tr>
+        <tr><td><a href="https://pdfbox.apache.org/" target="_blank" rel="noopener">Apache PDFBox</a></td><td>Low-level PDF library openhtmltopdf renders onto (pulled in transitively)</td><td>Apache-2.0</td></tr>
+        <tr><td><a href="https://jsoup.org/" target="_blank" rel="noopener">jsoup</a></td><td>Lenient HTML parsing → the W3C DOM the engine consumes</td><td>MIT</td></tr>
+        <tr><td><a href="https://spring.io/projects/spring-boot" target="_blank" rel="noopener">Spring Boot</a></td><td>Application framework — <code>web</code> + <code>actuator</code> starters</td><td>Apache-2.0</td></tr>
+        <tr><td><a href="https://springdoc.org/" target="_blank" rel="noopener">springdoc-openapi</a></td><td>Serves <code>/v3/api-docs</code> and the dev-only Swagger UI</td><td>Apache-2.0</td></tr>
+        <tr><td><a href="https://fonts.google.com/noto" target="_blank" rel="noopener">Noto fonts</a></td><td>Bundled multi-script font set (in the jar / image)</td><td>OFL-1.1</td></tr>
       </tbody>
     </table>
+
+    <div class="callout">
+      <strong>Not a dependency:</strong> <a href="https://verapdf.org/" target="_blank" rel="noopener">veraPDF</a>
+      is <em>not</em> used, bundled or called by pdfbox. It's a separate, optional command-line
+      validator you can run yourself on the output to check PDF/A conformance — see
+      <a routerLink="/standards">PDF/A standards</a>.
+    </div>
 
     <div class="callout">
       Runtime requirements are deliberately tiny: a <strong>JDK 21</strong> runtime (bundled in the
