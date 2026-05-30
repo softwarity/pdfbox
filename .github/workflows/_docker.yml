@@ -4,8 +4,19 @@ name: Reusable Docker build & publish
 # (no QEMU emulation) in parallel, pushed by digest; a final job assembles the
 # manifest list. Tags are derived from the caller's ref by metadata-action, so
 # the same logic serves branch pushes (CI) and version tags (release).
+#
+# Optional `ref` input: when set (e.g. a "v1.0.0" tag from a manual re-publish),
+# every job checks out that ref and the semver version is taken from it instead of
+# the Git ref — so the image can be (re)built for an existing tag. Empty (the CI /
+# tag-push path) keeps the original behaviour.
 on:
   workflow_call:
+    inputs:
+      ref:
+        description: Git ref / version tag to build (empty = the caller's ref).
+        required: false
+        type: string
+        default: ''
 
 env:
   IMAGE: docker.io/softwarity/pdfbox
@@ -20,6 +31,8 @@ jobs:
         platform: [linux/amd64, linux/arm64]
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref }}
       - name: Prepare platform name
         run: echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
         env:
@@ -78,8 +91,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ inputs.ref }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.ref }}
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
