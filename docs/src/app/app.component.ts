@@ -1,6 +1,6 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
+import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 
 interface DocLink {
   path: string;
@@ -16,6 +16,11 @@ interface DocLink {
   styleUrl: './app.component.scss',
 })
 export class AppComponent {
+  constructor(iconRegistry: MatIconRegistry) {
+    // Use Material Symbols (loaded in index.html) as the default glyph set for every <mat-icon>.
+    iconRegistry.setDefaultFontSetClass('material-symbols-outlined');
+  }
+
   protected readonly links: DocLink[] = [
     { path: '/', label: 'Getting started', icon: 'rocket_launch' },
     { path: '/endpoints', label: 'API & endpoints', icon: 'api' },
@@ -23,7 +28,7 @@ export class AppComponent {
     { path: '/fonts', label: 'Fonts & scripts', icon: 'language' },
     { path: '/configuration', label: 'Configuration', icon: 'settings' },
     { path: '/docker', label: 'Docker & architectures', icon: 'dns' },
-    { path: '/kubernetes', label: 'Kubernetes (Helm)', icon: 'hub' },
+    { path: '/kubernetes', label: 'Kubernetes (Helm)', icon: 'deployed_code' },
     { path: '/how-it-works', label: 'How it works', icon: 'account_tree' },
   ];
 }
