@@ -9,6 +9,9 @@ Hebrew, Arabic, Thai, Devanagari, Japanese/CJK…).
 POST  your HTML  ──►  pdfbox  ──►  PDF/A binary
 ```
 
+📖 **Full documentation:** <https://softwarity.github.io/pdfbox/> — getting started, the API & endpoints,
+PDF/A standards, fonts & scripts, configuration, Docker (amd64 / arm64) and a Kubernetes (Helm) guide.
+
 ## Quick start (Docker)
 
 ```bash
@@ -166,6 +169,20 @@ java -jar target/pdfbox.jar --server.servlet.context-path=/pdfbox
 
 Every route then lives under that prefix, e.g. `POST http://localhost:8080/pdfbox/api/v1/pdf`,
 `GET http://localhost:8080/pdfbox/v3/api-docs`, `GET http://localhost:8080/pdfbox/actuator/health`.
+
+## Kubernetes (Helm)
+
+A minimal Helm chart ships under [`helm/pdfbox`](helm/pdfbox). It deploys the multi-arch image with a
+Deployment + Service, health probes on `/actuator/health`, and an optional Ingress.
+
+```bash
+helm install pdfbox ./helm/pdfbox
+# pin a release and run two replicas
+helm install pdfbox ./helm/pdfbox --set image.tag=1.0.0 --set replicaCount=2
+```
+
+See the [chart README](helm/pdfbox/README.md) and the [Kubernetes docs page](https://softwarity.github.io/pdfbox/#/kubernetes)
+for values (Ingress, base path, extra fonts, autoscaling).
 
 ## How it works
 
