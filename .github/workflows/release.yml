@@ -1,7 +1,13 @@
 name: Release
 
 # Cut a semantic-version release from main. This creates and pushes a vX.Y.Z tag,
-# which in turn triggers the "Docker release" workflow to publish the release image.
+# which in turn triggers the "Docker release" workflow to build & publish the image.
+#
+# IMPORTANT: the tag MUST be pushed with a PAT (PIPELINE_TOKEN), not the default
+# GITHUB_TOKEN. GitHub deliberately does NOT re-trigger workflows for events created
+# with the GITHUB_TOKEN, so a tag pushed with it would silently fail to start the
+# Docker release. The "Guard" step below fails fast with an explanatory message if
+# PIPELINE_TOKEN is missing, instead of letting the cascade break silently.
 on:
   workflow_dispatch:
     inputs:
@@ -19,9 +25,24 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Guard — PIPELINE_TOKEN must be set
+        env:
+          PIPELINE_TOKEN: ${{ secrets.PIPELINE_TOKEN }}
+        run: |
+          if [ -z "$PIPELINE_TOKEN" ]; then
+            echo "::error title=Missing PIPELINE_TOKEN::The release would push the tag with the default GITHUB_TOKEN."
+            echo "::error::GitHub does NOT re-trigger workflows for events made with GITHUB_TOKEN, so docker-release.yml"
+            echo "::error::would never run and no image would be published. Create a PAT (repo + workflow scope) and"
+            echo "::error::store it as the repository secret 'PIPELINE_TOKEN', then re-run this workflow."
+            exit 1
+          fi
+          echo "PIPELINE_TOKEN is present — the pushed tag will trigger docker-release.yml."
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          # Persist the PAT so the tag push below carries it (and thus triggers docker-release.yml).
+          token: ${{ secrets.PIPELINE_TOKEN }}
 
       - name: Compute next version
         id: version
@@ -48,5 +69,5 @@ jobs:
 
       - name: Create GitHub release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PIPELINE_TOKEN }}
         run: gh release create "${{ steps.version.outputs.tag }}" --generate-notes --title "${{ steps.version.outputs.tag }}"
