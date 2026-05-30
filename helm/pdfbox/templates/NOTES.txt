@@ -1,0 +1,33 @@
+pdfbox has been deployed. 🎉
+
+Release: {{ .Release.Name }}
+Image:   {{ include "pdfbox.image" . }}
+
+1. Wait for the pod to become ready (the JVM + font index take a few seconds):
+
+   kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}" -w
+
+{{- if .Values.ingress.enabled }}
+
+2. Your Ingress is enabled. Reach pdfbox at:
+{{- range .Values.ingress.hosts }}
+  {{- $host := .host }}
+  {{- range .paths }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else }}
+
+2. The Service is {{ .Values.service.type }}. Port-forward to try it locally:
+
+   kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "pdfbox.fullname" . }} 8080:{{ .Values.service.port }}
+
+   Then convert some HTML to PDF/A:
+
+   curl -X POST "http://localhost:8080{{ .Values.env.PDFBOX_BASE_PATH | default "" }}/api/v1/pdf?standard=PDF_A_1B" \
+        -H "Content-Type: text/html" \
+        --data '<h1>Hello from Kubernetes</h1>' \
+        -o document.pdf
+{{- end }}
+
+Docs: https://softwarity.github.io/pdfbox/

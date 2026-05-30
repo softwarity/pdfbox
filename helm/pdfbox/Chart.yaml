@@ -1,0 +1,19 @@
+apiVersion: v2
+name: pdfbox
+description: A minimal chart to deploy pdfbox — a self-contained HTML to PDF/A service — on Kubernetes.
+type: application
+# Chart version (bump on chart changes).
+version: 0.1.0
+# Default application/image version deployed (overridable via image.tag). Tracks the pdfbox image.
+appVersion: "latest"
+home: https://softwarity.github.io/pdfbox/
+sources:
+  - https://github.com/softwarity/pdfbox
+keywords:
+  - pdf
+  - pdfa
+  - html-to-pdf
+  - spring-boot
+maintainers:
+  - name: Softwarity
+    url: https://www.softwarity.io/
