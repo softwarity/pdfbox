@@ -3,21 +3,9 @@ name: Docker release
 # Triggered by version tags created by the Release workflow: verify, then build
 # and publish the released image (semver tags + latest) via the shared multi-arch
 # workflow.
-#
-# workflow_dispatch is also offered so a release can be (re)published manually for a
-# tag that already exists — run it from the default branch and pass the tag (e.g.
-# v1.0.0) as the input. Useful when the tag was pushed with the default GITHUB_TOKEN
-# (which does not re-trigger the tag-push event), as happened before the Release
-# workflow was switched to a PAT.
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing version tag to (re)publish, e.g. v1.0.0
-        required: true
-        type: string
 
 jobs:
   verify:
@@ -25,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -39,6 +25,4 @@ jobs:
     name: Build & publish image
     needs: verify
     uses: ./.github/workflows/_docker.yml
-    with:
-      ref: ${{ github.event.inputs.tag || '' }}
     secrets: inherit
