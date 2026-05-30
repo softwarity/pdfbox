@@ -23,7 +23,7 @@ export class AppComponent {
     { path: '/fonts', label: 'Fonts & scripts', icon: 'language' },
     { path: '/configuration', label: 'Configuration', icon: 'settings' },
     { path: '/docker', label: 'Docker & architectures', icon: 'dns' },
-    { path: '/kubernetes', label: 'Kubernetes (Helm)', icon: 'deployed_code' },
+    { path: '/kubernetes', label: 'Kubernetes (Helm)', icon: 'hub' },
     { path: '/how-it-works', label: 'How it works', icon: 'account_tree' },
   ];
 }
