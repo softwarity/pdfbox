@@ -2,6 +2,10 @@
 
 ## NEXT RELEASE
 
+---
+
+## 1.1.0
+
 ### Added
 - **`GET /api/v1/pdf-info?standard=<STANDARD>`** — returns a self-describing PDF that is itself
   generated in the requested standard and documents the constraints that standard enforces:

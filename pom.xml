@@ -13,7 +13,7 @@
 
     <groupId>com.softwarity</groupId>
     <artifactId>pdfbox</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <name>pdfbox</name>
     <description>HTML to PDF/A generation service powered by OpenPDF</description>
 
