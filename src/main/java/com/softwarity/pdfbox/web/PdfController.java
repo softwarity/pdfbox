@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.softwarity.pdfbox.pdf.PdfAStandard;
 import com.softwarity.pdfbox.pdf.PdfGenerationService;
+import com.softwarity.pdfbox.pdf.StandardInfoService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,11 +35,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class PdfController {
 
     private final PdfGenerationService pdfService;
+    private final StandardInfoService standardInfoService;
     private final PdfAStandard defaultStandard;
 
     public PdfController(PdfGenerationService pdfService,
+                         StandardInfoService standardInfoService,
                          @Value("${pdfbox.default-standard}") PdfAStandard defaultStandard) {
         this.pdfService = pdfService;
+        this.standardInfoService = standardInfoService;
         this.defaultStandard = defaultStandard;
     }
 
@@ -99,8 +103,32 @@ public class PdfController {
         return Arrays.asList(PdfAStandard.values());
     }
 
+    /**
+     * Returns a PDF, conforming to the requested standard, that documents the constraints that
+     * standard enforces. Open {@code /api/v1/pdf-info?standard=PDF_A_1A} in a browser to both read the
+     * rules and inspect a real conforming file — a living spec and end-to-end smoke test.
+     */
+    @Operation(summary = "Self-describing PDF of a standard's constraints",
+            description = "Returns a PDF, conforming to the requested standard, that lists the "
+                    + "constraints that standard enforces. Defaults to the configured standard.")
+    @GetMapping(value = "/pdf-info", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> standardInfo(
+            @RequestParam(name = "standard", required = false) @Nullable PdfAStandard standard) {
+
+        PdfAStandard target = standard != null ? standard : defaultStandard;
+        String html = standardInfoService.toHtml(target);
+        byte[] pdf = pdfService.render(html, target, null);
+        return pdfResponse(pdf, "pdf-info-" + target.name() + ".pdf", false);
+    }
+
     private static ResponseEntity<byte[]> pdfResponse(byte[] pdf, String filename) {
-        ContentDisposition disposition = ContentDisposition.attachment()
+        return pdfResponse(pdf, filename, true);
+    }
+
+    private static ResponseEntity<byte[]> pdfResponse(byte[] pdf, String filename, boolean attachment) {
+        ContentDisposition disposition = (attachment
+                ? ContentDisposition.attachment()
+                : ContentDisposition.inline())
                 .filename(filename)
                 .build();
         return ResponseEntity.ok()

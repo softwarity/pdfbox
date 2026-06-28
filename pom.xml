@@ -13,7 +13,7 @@
 
     <groupId>com.softwarity</groupId>
     <artifactId>pdfbox</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>pdfbox</name>
     <description>HTML to PDF/A generation service powered by OpenPDF</description>
 
@@ -22,6 +22,8 @@
         <openhtmltopdf.version>1.1.37</openhtmltopdf.version>
         <jsoup.version>1.21.2</jsoup.version>
         <springdoc.version>2.8.9</springdoc.version>
+        <verapdf.version>1.30.2</verapdf.version>
+        <jaxb.version>2.3.1</jaxb.version>
     </properties>
 
     <dependencies>
@@ -58,6 +60,28 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- veraPDF: reference PDF/A validator, used in tests to assert real conformance of output -->
+        <dependency>
+            <groupId>org.verapdf</groupId>
+            <artifactId>validation-model</artifactId>
+            <version>${verapdf.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- veraPDF declares JAXB as optional; it reads its validation profiles via javax.xml.bind,
+             which the JDK no longer bundles, so the runtime must be supplied on the test classpath. -->
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>${jaxb.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <version>${jaxb.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

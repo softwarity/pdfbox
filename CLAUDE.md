@@ -51,8 +51,17 @@ HTML ──HtmlNormalizer(jsoup)──► W3C DOM ──openhtmltopdf/PdfRendere
 
 `PdfAStandard` is the single source of truth mapping public enum values → openhtmltopdf
 `PdfAConformance` + the required PDF version (1.4 for part 1, 1.7 for parts 2/3) + whether the level
-is accessible/tagged ("A"). To add or change a standard, edit this enum; the controller exposes its
-`values()` at `GET /api/v1/standards` automatically.
+is accessible/tagged ("A") + `part()` (1/2/3, or 0 for `NONE`) and `level()` (`"A"`/`"B"`/`"U"`). To
+add or change a standard, edit this enum; the controller exposes its `values()` at
+`GET /api/v1/standards` automatically, and `StandardInfoService` derives its constraint docs from
+`part()`/`level()`.
+
+`StandardInfoService` builds a self-describing HTML page listing a standard's constraints, composed
+from three orthogonal sources (rules common to all PDF/A + part-specific rules + level guarantees) so
+it stays complete without a rule database. Rendered through `PdfGenerationService` with that same
+standard, it yields a PDF that both documents and conforms to the standard — served by
+`GET /api/v1/pdf-info?standard=...`. Its CSS is deliberately transparency-free (no `box-shadow` /
+`rgba` / `opacity`) because the same markup is rendered to PDF/A-1, which forbids transparency.
 
 ## Fonts (the tricky part)
 
@@ -91,10 +100,14 @@ The non-obvious mechanics, all learned the hard way (don't regress them):
 ## Web layer
 
 - `PdfController` (`/api/v1`): `POST /pdf` (HTML body), `POST /pdf/upload` (multipart, the form
-  Swagger renders as a file picker), `GET /standards`. Both POSTs share `pdfResponse(...)` and fall
-  back to the configured default standard when none is given.
+  Swagger renders as a file picker), `GET /standards`, and `GET /pdf-info` (self-describing PDF of a
+  standard's constraints, served `inline`). All share `pdfResponse(...)` and fall back to the
+  configured default standard when none is given.
 - `GlobalExceptionHandler` maps `PdfGenerationException` and the binding/argument exceptions to a
-  plain-text **400**. New user-input failure modes should map here, not bubble as 500s.
+  plain-text **400**. `MethodArgumentTypeMismatchException` has its own handler that, for any enum
+  param (e.g. a bad `?standard=`), names the offending value and lists the accepted values via
+  `getRequiredType().getEnumConstants()` — so it stays correct as standards are added. New user-input
+  failure modes should map here, not bubble as 500s.
 - `server.servlet.context-path` (`PDFBOX_BASE_PATH`) prefixes **every** route and is fixed at
   launch — it is not a per-request value.
 
@@ -105,11 +118,33 @@ overrides the font config to a tiny Liberation Sans set (`target/test-classes/fo
 the full Noto bundle isn't loaded during tests. Tests assert PDF structure by inspecting raw bytes
 (header version, `pdfaid:part` in the XMP) rather than parsing — keep that style.
 
+`StandardConformanceValidationTest` is the real conformance gate: it renders the `pdf-info` PDF for
+every standard and validates it against that same standard with **veraPDF** (the ISO reference
+validator), plus a negative control (a plain PDF must fail PDF/A-1B). veraPDF (`org.verapdf:
+validation-model`, on Maven Central) and the JAXB runtime it needs on JDK 21 (`javax.xml.bind:
+jaxb-api` + `org.glassfish.jaxb:jaxb-runtime`, since veraPDF declares JAXB as optional and reads its
+profiles via `javax.xml.bind` / `com.sun.xml.bind.v2.ContextFactory`) are **test-scoped only** — no
+impact on the jar or image. The greenfield foundry entry point is
+`org.verapdf.gf.foundry.VeraGreenfieldFoundryProvider` (note the `gf.foundry` package).
+
 ## CI / release
 
+- **The published artifact is the Docker image; the git tag is the source of truth for the version.**
+  The Maven `<version>` in `pom.xml` is **synced automatically** by the release action (see below) —
+  do not hand-bump it. It only lands in the jar manifest (`finalName` is the fixed `pdfbox.jar`, so
+  the version never changes the filename).
 - `.github/workflows/ci.yml`: `mvn verify` on every push/PR, then builds & pushes a Docker image to
   Docker Hub (`docker.io/softwarity/pdfbox`) on push. Requires repo secrets `DOCKERHUB_USERNAME`
   and `DOCKERHUB_RW` (a Docker Hub Read & Write access token).
-- `.github/workflows/release.yml`: manual `workflow_dispatch` that bumps a semver tag on `main`,
-  which triggers the Docker release workflow.
+- `.github/workflows/release.yml`: manual `workflow_dispatch` (bump = patch/minor/major) that runs
+  the `softwarity/release-flow@v1` action. It auto-detects `maven_docker` mode (pom.xml + Dockerfile
+  present), so in one commit on `main` it: derives the next `vX.Y.Z` from the latest tag, runs
+  `mvn versions:set` **in a Maven container** to sync `pom.xml`, renames `## NEXT RELEASE` →
+  `## X.Y.Z` in `RELEASE_NOTES.md`, tags + pushes, publishes the GitHub Release, and reopens a fresh
+  `## NEXT RELEASE`. The tag is pushed via the **`PAT_TOKEN`** secret wired into `actions/checkout`
+  (not the default `GITHUB_TOKEN`, which would not re-trigger the Docker release). `main` must stay
+  pushable by that PAT (it's currently unprotected).
+- `.github/workflows/docker-release.yml`: triggered on `v*` tags, runs `mvn verify` then calls the
+  reusable `_docker.yml` to build & publish the multi-arch (amd64/arm64) image (`latest`, `X.Y.Z`,
+  `X.Y`).
 - `Dockerfile` is a two-stage Maven→JRE build; `/app/fonts` is the drop-in dir for extra fonts.

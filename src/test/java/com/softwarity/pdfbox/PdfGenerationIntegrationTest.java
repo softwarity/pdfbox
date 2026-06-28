@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -66,5 +67,29 @@ class PdfGenerationIntegrationTest {
                         .content(HTML))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_PDF));
+    }
+
+    @Test
+    void pdfInfoReturnsConformingSelfDescribingPdf() throws Exception {
+        byte[] pdf = mockMvc.perform(get("/api/v1/pdf-info?standard=PDF_A_1B"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andReturn().getResponse().getContentAsByteArray();
+        // The info PDF is itself generated in the requested standard: PDF/A-1 => header 1.4 + pdfaid.
+        assertThat(new String(pdf, 0, 8, StandardCharsets.ISO_8859_1)).startsWith("%PDF-1.4");
+        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("pdfaid:part");
+    }
+
+    @Test
+    void pdfInfoRejectsUnknownStandardWithHelpfulMessage() throws Exception {
+        String body = mockMvc.perform(get("/api/v1/pdf-info?standard=NOT_A_STANDARD"))
+                .andExpect(status().isBadRequest())
+                .andReturn().getResponse().getContentAsString();
+        // The message must name the bad value and list the accepted standards so callers can recover.
+        assertThat(body)
+                .contains("NOT_A_STANDARD")
+                .contains("Supported values:")
+                .contains("PDF_A_1A")
+                .contains("NONE");
     }
 }

@@ -50,6 +50,7 @@ mvn package && java -jar target/pdfbox.jar
 | `POST /api/v1/pdf` | Body = HTML. Query params: `standard` (see below, default `PDF_A_1B`), `filename` (default `document.pdf`). Returns `application/pdf`. |
 | `POST /api/v1/pdf/upload` | `multipart/form-data`: `file` = a standalone HTML file, plus `standard` and `filename`. Returns `application/pdf`. This is the form Swagger UI shows as a file picker. |
 | `GET /api/v1/standards` | Lists the supported standards. |
+| `GET /api/v1/pdf-info` | Query param `standard`. Returns a PDF, **conforming to that standard**, that documents the constraints the standard enforces — a self-describing reference page and end-to-end check. |
 | `GET /v3/api-docs` | OpenAPI 3 description (JSON). |
 | `GET /swagger-ui.html` | Interactive Swagger UI — **dev profile only** (see below). |
 | `GET /actuator/health` | Health probe. |
@@ -64,6 +65,27 @@ curl -X POST "http://localhost:8080/api/v1/pdf/upload" \
      -F "file=@invoice.html;type=text/html" \
      -F "standard=PDF_A_2B" \
      -o invoice.pdf
+```
+
+An invalid `standard` returns a plain-text **400** that names the bad value and lists the accepted
+ones, so you never have to guess:
+
+```bash
+curl "http://localhost:8080/api/v1/pdf-info?standard=foo"
+# Invalid value 'foo' for parameter 'standard'. Supported values: NONE, PDF_A_1A, PDF_A_1B, ...
+```
+
+### Standard, self-described
+
+`GET /api/v1/pdf-info?standard=<STANDARD>` returns a PDF that is **both an example of and a
+description of** that standard: the file conforms to the requested standard and its content lists the
+constraints that standard enforces (conformance level, rules common to every PDF/A part, and the
+part-specific rules). Handy as a reference and as a quick conformance check.
+
+```bash
+# A PDF/A-1a document that explains PDF/A-1a:
+curl "http://localhost:8080/api/v1/pdf-info?standard=PDF_A_1A" -o pdf-info-1a.pdf
+verapdf --flavour 1a pdf-info-1a.pdf      # and it validates
 ```
 
 ### OpenAPI & Swagger UI
@@ -183,6 +205,27 @@ helm install pdfbox ./helm/pdfbox --set image.tag=1.0.0 --set replicaCount=2
 
 See the [chart README](helm/pdfbox/README.md) and the [Kubernetes docs page](https://softwarity.github.io/pdfbox/#/kubernetes)
 for values (Ingress, base path, extra fonts, autoscaling).
+
+## Releasing
+
+The published **artifact is the multi-arch Docker image** (`docker.io/softwarity/pdfbox`), and the
+**git tag is the source of truth for the version**. Releases are cut by the
+[`softwarity/release-flow`](https://github.com/softwarity/release-flow) action.
+
+1. Keep [`RELEASE_NOTES.md`](RELEASE_NOTES.md) up to date as you merge: write user-facing changes
+   under the `## NEXT RELEASE` heading. That section becomes the published release notes.
+2. Run the **Release** workflow (Actions → Release → Run workflow) and pick `patch` / `minor` /
+   `major`. release-flow then, in one commit on `main`: computes the next `vX.Y.Z` from the latest
+   tag, **syncs `pom.xml`'s `<version>`** to it (auto-detected `maven_docker` mode — it runs
+   `mvn versions:set` in a Maven container, so no manual version bump and no local Java needed),
+   renames `## NEXT RELEASE` → `## X.Y.Z`, tags and pushes, publishes the GitHub Release, and reopens
+   a fresh `## NEXT RELEASE`.
+3. The pushed tag triggers **Docker release**, which runs `mvn verify` then builds and publishes the
+   `amd64` + `arm64` image, tagged `latest`, `X.Y.Z` and `X.Y`.
+
+> The tag is pushed with a **PAT** (the `PAT_TOKEN` secret, used by `actions/checkout`), not the
+> default `GITHUB_TOKEN` — GitHub does not re-trigger workflows for `GITHUB_TOKEN` pushes, so the
+> Docker release would otherwise never start.
 
 ## How it works
 
