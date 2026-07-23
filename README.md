@@ -248,3 +248,7 @@ This project stands on the shoulders of these open-source projects — thank you
 - [Spring Boot](https://spring.io/projects/spring-boot) (Apache-2.0)
 - [Noto fonts](https://fonts.google.com/noto) (SIL Open Font License 1.1)
 - PDF/A validation by [veraPDF](https://verapdf.org/)
+
+## License
+
+Apache-2.0
