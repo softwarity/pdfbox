@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ### Build stage ###########################################################
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /src
 COPY pom.xml .
 COPY src ./src
@@ -27,7 +27,7 @@ for v in ("KR", "SC", "TC"):
 PY
 
 ### Runtime stage #########################################################
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 # A broad Noto font set (Latin/Vietnamese, Hebrew, Arabic, Thai, Devanagari, all
 # the Indic/SE-Asian/Caucasian scripts, symbols, mono emoji...) is bundled inside
 # the jar; the big CJK faces (Korean, Chinese SC/TC) come from the cjk-fonts stage

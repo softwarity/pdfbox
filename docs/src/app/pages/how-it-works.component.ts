@@ -72,7 +72,7 @@ import { CodeComponent } from '../code/code.component';
     </div>
 
     <div class="callout">
-      Runtime requirements are deliberately tiny: a <strong>JDK 21</strong> runtime (bundled in the
+      Runtime requirements are deliberately tiny: a <strong>JDK 25</strong> runtime (bundled in the
       image) and some memory for the JVM. No system fonts, services or config are required —
       see <a routerLink="/configuration">Configuration</a> for the few optional knobs.
     </div>

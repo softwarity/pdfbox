@@ -32,7 +32,7 @@ That is the whole contract: send HTML, pick a standard, receive `application/pdf
 
 ## Build & run locally
 
-Requires JDK 21.
+Requires JDK 25.
 
 ```bash
 mvn spring-boot:run          # run from sources

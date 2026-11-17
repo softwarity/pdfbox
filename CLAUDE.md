@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A single Spring Boot service (`com.softwarity.pdfbox`) that converts HTML to PDF, including
 PDF/A (parts 1/2/3, levels A/B/U). Fully offline: no external services, no runtime config, all
 fonts and the sRGB profile bundled. The whole public contract is "POST HTML, get an
-`application/pdf` back". JDK 21 required.
+`application/pdf` back". JDK 25 required.
 
 ## Commands
 
@@ -121,7 +121,7 @@ the full Noto bundle isn't loaded during tests. Tests assert PDF structure by in
 `StandardConformanceValidationTest` is the real conformance gate: it renders the `pdf-info` PDF for
 every standard and validates it against that same standard with **veraPDF** (the ISO reference
 validator), plus a negative control (a plain PDF must fail PDF/A-1B). veraPDF (`org.verapdf:
-validation-model`, on Maven Central) and the JAXB runtime it needs on JDK 21 (`javax.xml.bind:
+validation-model`, on Maven Central) and the JAXB runtime it needs on JDK 25 (`javax.xml.bind:
 jaxb-api` + `org.glassfish.jaxb:jaxb-runtime`, since veraPDF declares JAXB as optional and reads its
 profiles via `javax.xml.bind` / `com.sun.xml.bind.v2.ContextFactory`) are **test-scoped only** — no
 impact on the jar or image. The greenfield foundry entry point is
