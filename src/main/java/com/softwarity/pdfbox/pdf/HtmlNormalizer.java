@@ -1,6 +1,7 @@
 package com.softwarity.pdfbox.pdf;
 
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 import org.jsoup.Jsoup;
 import org.jsoup.helper.W3CDom;
@@ -26,18 +27,39 @@ public class HtmlNormalizer {
     private final String defaultFontFamily;
     private final String defaultLang;
     private final String defaultTitle;
+    private final SvgSanitizer svgSanitizer;
     private final W3CDom w3cDom = new W3CDom();
 
     public HtmlNormalizer(@Value("${pdfbox.default-font-family}") String defaultFontFamily,
                           @Value("${pdfbox.default-lang:en}") String defaultLang,
-                          @Value("${pdfbox.default-title:Document}") String defaultTitle) {
+                          @Value("${pdfbox.default-title:Document}") String defaultTitle,
+                          SvgSanitizer svgSanitizer) {
         this.defaultFontFamily = defaultFontFamily;
         this.defaultLang = defaultLang;
         this.defaultTitle = defaultTitle;
+        this.svgSanitizer = svgSanitizer;
     }
 
     public org.w3c.dom.Document toW3c(String html) {
+        return toW3c(html, null);
+    }
+
+    /**
+     * @param svgInliner turns an external reference found inside an inline {@code <svg>} into a
+     *                   {@code data:} URI, or {@code null} when it cannot be resolved (see
+     *                   {@link SvgSanitizer}); {@code null} drops every such reference
+     */
+    public org.w3c.dom.Document toW3c(String html, UnaryOperator<String> svgInliner) {
         Document doc = Jsoup.parse(html == null ? "" : html);
+
+        // Inline SVG: strip scripts and event handlers, inline external references, force the
+        // bundled fonts — before Batik ever sees it. Only outermost <svg> roots (nested ones are
+        // part of their parent's subtree).
+        for (Element svg : doc.select("svg")) {
+            if (svg.parents().stream().noneMatch(p -> p.normalName().equals("svg"))) {
+                svgSanitizer.sanitize(svg, svgInliner);
+            }
+        }
 
         ensureLang(doc);
 

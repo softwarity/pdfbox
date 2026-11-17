@@ -238,16 +238,39 @@ public class FontService {
      * in {@code html}. Embeds only the glyphs actually used.
      */
     public void registerFonts(PdfRendererBuilder builder, String html) {
-        Set<String> activeScripts = detectScriptFamilies(html == null ? "" : html);
+        registerFonts(builder, html, false);
+    }
+
+    /**
+     * Same as {@link #registerFonts(PdfRendererBuilder, String)}; with {@code svg} the selected faces
+     * are also handed to the SVG drawer (Batik), so SVG text is drawn with the bundled faces instead
+     * of host fonts. Batik loads every face it is given on each render, hence opt-in: only documents
+     * that actually contain SVG pay for it.
+     *
+     * @param content the text to scan for scripts: the HTML plus any attached SVG/CSS/HTML text
+     */
+    public void registerFonts(PdfRendererBuilder builder, String content, boolean svg) {
+        Set<String> activeScripts = detectScriptFamilies(content == null ? "" : content);
+        Set<FSFontUseCase> documentOnly = with(DOCUMENT_ONLY, svg);
+        Set<FSFontUseCase> documentAndFallback = with(DOCUMENT_AND_FALLBACK, svg);
         faces.forEach(f -> {
             if (SCRIPT_FAMILY_NAMES.contains(f.family()) && !activeScripts.contains(f.family())) {
                 return; // a script font this document does not need — don't make openhtmltopdf parse it
             }
             boolean fallback = f.file() == null && FALLBACK_FAMILIES.contains(f.family());
-            register(builder, f, f.family(), fallback ? DOCUMENT_AND_FALLBACK : DOCUMENT_ONLY);
+            register(builder, f, f.family(), fallback ? documentAndFallback : documentOnly);
             FAMILY_ALIASES.getOrDefault(f.family(), List.of())
                     .forEach(alias -> register(builder, f, alias, DOCUMENT_ONLY));
         });
+    }
+
+    private static Set<FSFontUseCase> with(Set<FSFontUseCase> base, boolean svg) {
+        if (!svg) {
+            return base;
+        }
+        EnumSet<FSFontUseCase> set = EnumSet.copyOf(base);
+        set.add(FSFontUseCase.SVG);
+        return set;
     }
 
     /**

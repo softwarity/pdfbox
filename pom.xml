@@ -42,6 +42,21 @@
             <artifactId>openhtmltopdf-pdfbox</artifactId>
             <version>${openhtmltopdf.version}</version>
         </dependency>
+        <!-- SVG drawing (Apache Batik), same version as the engine. Configured with scripts and
+             external resource loading disabled: Batik only ever reads data: URIs. -->
+        <dependency>
+            <groupId>io.github.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-svg-support</artifactId>
+            <version>${openhtmltopdf.version}</version>
+            <exclusions>
+                <!-- Old copies of JDK java.xml packages (org.w3c.dom…); the JDK's own win anyway.
+                     xml-apis-ext (the SVG DOM interfaces Batik needs) stays. -->
+                <exclusion>
+                    <groupId>xml-apis</groupId>
+                    <artifactId>xml-apis</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
 
         <!-- Tolerant HTML parsing + conversion to the W3C DOM openhtmltopdf consumes -->
         <dependency>

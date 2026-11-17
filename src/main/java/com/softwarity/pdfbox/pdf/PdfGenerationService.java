@@ -1,11 +1,18 @@
 package com.softwarity.pdfbox.pdf;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Locale;
+import java.util.Set;
 
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
+import com.openhtmltopdf.svgsupport.BatikSVGDrawer.SvgScriptMode;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSName;
+import org.apache.pdfbox.cos.COSObject;
+import org.apache.pdfbox.cos.COSObjectKey;
+import org.apache.pdfbox.cos.COSStream;
 import org.apache.pdfbox.pdfwriter.compress.CompressParameters;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.stereotype.Service;
@@ -24,6 +31,11 @@ public class PdfGenerationService {
         this.colorProfiles = colorProfiles;
     }
 
+    /** Renders HTML to a PDF document (see {@link #render(String, PdfAStandard, String)}). */
+    public byte[] render(String html, PdfAStandard standard) {
+        return render(html, standard, null);
+    }
+
     /**
      * Renders HTML to a PDF document.
      *
@@ -38,7 +50,11 @@ public class PdfGenerationService {
 
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
-        fontService.registerFonts(builder, html);
+        // SVG through Batik: no script, and Batik may only read data: URIs by itself — every other
+        // reference has been resolved (or refused) and inlined beforehand. One drawer per render: it
+        // holds the fonts and user agent of this document.
+        builder.useSVGDrawer(new BatikSVGDrawer(SvgScriptMode.SECURE, Set.of("data")));
+        fontService.registerFonts(builder, html, mentionsSvg(html));
 
         if (standard.isPdfA()) {
             builder.usePdfAConformance(standard.conformance());
@@ -61,6 +77,29 @@ public class PdfGenerationService {
     }
 
     /**
+     * Every PDF/A part forbids {@code /Interpolate true} on images (ISO 19005-1 6.2.4, -2/-3 6.2.8).
+     * Batik paints an SVG group with {@code opacity} as an offscreen image and the graphics bridge
+     * flags it interpolated, which alone would make the file non-conformant even in PDF/A-2/3, where
+     * the transparency itself is allowed. The flag is only a smoothing hint for viewers, so clearing it
+     * changes nothing that PDF/A cares about.
+     */
+    private static void clearImageInterpolation(PDDocument doc) {
+        for (COSObjectKey key : doc.getDocument().getXrefTable().keySet()) {
+            COSObject object = doc.getDocument().getObjectFromPool(key);
+            if (object != null && object.getObject() instanceof COSStream stream
+                    && COSName.IMAGE.equals(stream.getCOSName(COSName.SUBTYPE))
+                    && stream.containsKey(COSName.INTERPOLATE)) {
+                stream.setBoolean(COSName.INTERPOLATE, false);
+            }
+        }
+    }
+
+    /** Cheap pre-check: hand the bundled fonts to Batik only when the document may contain SVG. */
+    private static boolean mentionsSvg(String content) {
+        return content != null && content.toLowerCase(Locale.ROOT).contains("svg");
+    }
+
+    /**
      * Re-saves the document with the PDF version required by the target PDF/A part and without object
      * streams, so the output uses a classic cross-reference table — object/xref streams are forbidden
      * in PDF/A-1 and the byte-identical header keeps every validator happy.
@@ -79,6 +118,7 @@ public class PdfGenerationService {
                     COSName.getPDFName("XRefStm")}) {
                 trailer.removeItem(stale);
             }
+            clearImageInterpolation(doc);
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 doc.save(out, CompressParameters.NO_COMPRESSION);
                 saved = out.toByteArray();

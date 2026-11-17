@@ -1,22 +1,16 @@
 package com.softwarity.pdfbox;
 
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Set;
 
 import com.softwarity.pdfbox.pdf.PdfAStandard;
 import com.softwarity.pdfbox.pdf.PdfGenerationService;
 
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.cos.COSName;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDResources;
-import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import static com.softwarity.pdfbox.PdfTestSupport.embeddedFonts;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -74,32 +68,5 @@ class ScriptFontSelectionTest {
                 "<html lang=\"ko\"><head>" + STACK + "</head><body><p>漢字</p></body></html>", PdfAStandard.NONE, null));
 
         assertThat(fonts).noneMatch(f -> f.contains("NotoSansJP"));
-    }
-
-    static Set<String> embeddedFonts(byte[] pdf) throws IOException {
-        Set<String> names = new HashSet<>();
-        try (PDDocument doc = Loader.loadPDF(pdf)) {
-            for (PDPage page : doc.getPages()) {
-                collect(page.getResources(), names);
-            }
-        }
-        return names;
-    }
-
-    private static void collect(PDResources resources, Set<String> names) throws IOException {
-        if (resources == null) {
-            return;
-        }
-        for (COSName name : resources.getFontNames()) {
-            PDFont font = resources.getFont(name);
-            if (font != null) {
-                names.add(font.getName());
-            }
-        }
-        for (COSName name : resources.getXObjectNames()) {
-            if (resources.getXObject(name) instanceof org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject form) {
-                collect(form.getResources(), names);
-            }
-        }
     }
 }
