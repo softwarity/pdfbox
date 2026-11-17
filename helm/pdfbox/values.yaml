@@ -32,6 +32,14 @@ fetch:
   # PDFBOX_FETCH_MAX_BYTES — maximum size of one fetched resource.
   maxBytes: 10MB
 
+# Multipart uploads: the HTML plus attached files (CSS, images, SVG, TTF), held in memory only.
+upload:
+  # PDFBOX_UPLOAD_MAX_PART_SIZE — maximum size of one part (the HTML or one attached file).
+  maxPartSize: 20MB
+  # PDFBOX_UPLOAD_MAX_TOTAL_SIZE — maximum size of the whole request. Keep resources.limits.memory
+  # comfortably above (concurrent uploads x this value) + the JVM baseline.
+  maxTotalSize: 50MB
+
 serviceAccount:
   create: true
   automount: true

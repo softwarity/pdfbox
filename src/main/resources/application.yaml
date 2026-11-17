@@ -18,8 +18,12 @@ server:
     # the root). E.g. PDFBOX_BASE_PATH=/pdfbox exposes POST /pdfbox/api/v1/pdf, /pdfbox/swagger-ui...
     context-path: ${PDFBOX_BASE_PATH:}
   tomcat:
-    max-http-form-post-size: 50MB
-    max-swallow-size: 50MB
+    # Multipart limits themselves come from pdfbox.upload (see MultipartConfig). Swallowing up to the
+    # total limit lets an over-limit upload still get its 413 instead of a reset connection.
+    max-http-form-post-size: ${pdfbox.upload.max-total-size}
+    max-swallow-size: ${pdfbox.upload.max-total-size}
+    # Parts per multipart request (HTML + attached files + form fields). Tomcat's default is 50.
+    max-part-count: 256
 
 management:
   endpoints:
@@ -58,6 +62,12 @@ pdfbox:
   # Comma-separated directories scanned recursively at startup for embeddable .ttf / .otf fonts.
   fonts:
     directories: /app/fonts,/usr/share/fonts,fonts
+  # Multipart uploads (POST /api/v1/pdf and /pdf/upload with attached files).
+  upload:
+    # PDFBOX_UPLOAD_MAX_PART_SIZE: maximum size of one part (the HTML or one attached file).
+    max-part-size: 20MB
+    # PDFBOX_UPLOAD_MAX_TOTAL_SIZE: maximum size of the whole request.
+    max-total-size: 50MB
   # Remote resources (http/https images, stylesheets, fonts, SVG). Resolution order for anything the
   # HTML cites: an attached file by plain name, then a data: URI, then an http(s) URL whose host is
   # listed below. Everything else (file:, jar:, classpath:, other relative paths, unlisted hosts) is

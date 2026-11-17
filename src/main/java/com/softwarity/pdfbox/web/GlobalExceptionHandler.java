@@ -14,6 +14,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -25,6 +28,25 @@ class GlobalExceptionHandler {
             IllegalArgumentException.class})
     ResponseEntity<String> badRequest(Exception ex) {
         return plainBadRequest(ex.getMessage());
+    }
+
+    /** A part or the whole upload exceeds the configured multipart limits: 413. */
+    @ExceptionHandler({PayloadTooLargeException.class, MaxUploadSizeExceededException.class})
+    ResponseEntity<String> tooLarge(Exception ex) {
+        String message = ex instanceof PayloadTooLargeException ? ex.getMessage()
+                : "The upload exceeds the size limits (PDFBOX_UPLOAD_MAX_PART_SIZE per part, "
+                        + "PDFBOX_UPLOAD_MAX_TOTAL_SIZE in total).";
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+                .contentType(TEXT_PLAIN_UTF8)
+                .body(message);
+    }
+
+    /** Malformed multipart request, or a required part missing: 400. */
+    @ExceptionHandler({MultipartException.class, MissingServletRequestPartException.class})
+    ResponseEntity<String> badMultipart(Exception ex) {
+        return plainBadRequest(ex instanceof MissingServletRequestPartException missing
+                ? "Missing multipart part '" + missing.getRequestPartName() + "' (the HTML goes in 'file')."
+                : "Invalid multipart request: " + ex.getMessage());
     }
 
     /**

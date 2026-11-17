@@ -54,6 +54,15 @@ spec:
             - name: PDFBOX_FETCH_MAX_BYTES
               value: {{ .Values.fetch.maxBytes | quote }}
             {{- end }}
+            {{- /* Multipart limits (PDFBOX_UPLOAD_*); an explicit entry in .Values.env wins. */}}
+            {{- if not (hasKey .Values.env "PDFBOX_UPLOAD_MAX_PART_SIZE") }}
+            - name: PDFBOX_UPLOAD_MAX_PART_SIZE
+              value: {{ .Values.upload.maxPartSize | quote }}
+            {{- end }}
+            {{- if not (hasKey .Values.env "PDFBOX_UPLOAD_MAX_TOTAL_SIZE") }}
+            - name: PDFBOX_UPLOAD_MAX_TOTAL_SIZE
+              value: {{ .Values.upload.maxTotalSize | quote }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}

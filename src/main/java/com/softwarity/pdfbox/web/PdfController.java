@@ -13,6 +13,7 @@ import com.softwarity.pdfbox.resource.MissingResourcePolicy;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -40,13 +42,16 @@ public class PdfController {
     private final PdfGenerationService pdfService;
     private final StandardInfoService standardInfoService;
     private final PdfAStandard defaultStandard;
+    private final AttachmentValidator attachmentValidator;
 
     public PdfController(PdfGenerationService pdfService,
                          StandardInfoService standardInfoService,
-                         @Value("${pdfbox.default-standard}") PdfAStandard defaultStandard) {
+                         @Value("${pdfbox.default-standard}") PdfAStandard defaultStandard,
+                         AttachmentValidator attachmentValidator) {
         this.pdfService = pdfService;
         this.standardInfoService = standardInfoService;
         this.defaultStandard = defaultStandard;
+        this.attachmentValidator = attachmentValidator;
     }
 
     /**
@@ -74,33 +79,56 @@ public class PdfController {
     }
 
     /**
-     * Uploads a standalone HTML file (no JavaScript — openhtmltopdf does not execute it) and returns
-     * the rendered PDF in the requested standard. This is the multipart form Swagger UI presents as a
-     * file picker.
+     * Multipart rendering: the HTML as the {@code file} part, plus any number of {@code resources}
+     * parts — CSS, images (PNG, JPEG, GIF, WebP, SVG) and TrueType fonts — that the HTML cites by their
+     * plain file name ({@code <img src="sigwx.svg">}, {@code url(logo-font.ttf)}). The part's file name
+     * is what counts. Attached files only live in memory for this request. Served on both
+     * {@code /pdf} (next to the raw-HTML form) and {@code /pdf/upload}; with a single {@code file} part
+     * it behaves exactly as before. This is the form Swagger UI renders with file pickers.
      */
-    @Operation(summary = "Convert an uploaded HTML file to PDF",
-            description = "Select a standalone HTML file (JavaScript is not executed) and a target standard; "
-                    + "the response is the rendered application/pdf.")
+    @Operation(summary = "Convert an uploaded HTML file, with its attached resources, to PDF",
+            description = "multipart/form-data: 'file' = the HTML (JavaScript is not executed); "
+                    + "'resources' (repeatable, optional) = files the HTML cites by plain file name: CSS, "
+                    + "PNG, JPEG, GIF, WebP, SVG, TTF. Returns application/pdf; 422 when a cited resource "
+                    + "cannot be resolved (unless onMissingResource=report); 400 for an invalid, duplicate "
+                    + "or unsupported attachment; 413 above the size limits.")
     @PostMapping(
-            value = "/pdf/upload",
+            value = {"/pdf", "/pdf/upload"},
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
             produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> generateFromFile(
             @RequestPart("file")
-            @Schema(type = "string", format = "binary", description = "Standalone HTML file to convert")
+            @Schema(type = "string", format = "binary", description = "The HTML document to convert")
             MultipartFile file,
+            @RequestPart(value = "resources", required = false)
+            @ArraySchema(arraySchema = @Schema(description = "Files the HTML cites by plain name: "
+                    + "CSS, PNG, JPEG, GIF, WebP, SVG, TTF"),
+                    schema = @Schema(type = "string", format = "binary"))
+            @Nullable List<MultipartFile> resources,
             @RequestParam(name = "standard", required = false) @Nullable PdfAStandard standard,
             @RequestParam(name = "filename", required = false) @Nullable String filename,
             @RequestParam(name = "onMissingResource", required = false)
             @Parameter(description = MISSING_DOC, schema = @Schema(allowableValues = {"fail", "report"}))
-            @Nullable MissingResourcePolicy onMissingResource)
+            @Nullable MissingResourcePolicy onMissingResource,
+            MultipartHttpServletRequest request)
             throws IOException {
 
+        for (String part : request.getMultiFileMap().keySet()) {
+            if (!part.equals("file") && !part.equals("resources")) {
+                throw new IllegalArgumentException("Unexpected file part '" + part + "': send the HTML as "
+                        + "'file' and each attached file as a 'resources' part.");
+            }
+        }
+        if (request.getMultiFileMap().getOrDefault("file", List.of()).size() > 1) {
+            throw new IllegalArgumentException("Send exactly one 'file' part (the HTML); attached files go "
+                    + "in 'resources' parts.");
+        }
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("No HTML file was uploaded.");
         }
+        Attachments attachments = attachmentValidator.validate(file, resources);
         String html = new String(file.getBytes(), StandardCharsets.UTF_8);
-        return render(html, Attachments.none(), standard, onMissingResource,
+        return render(html, attachments, standard, onMissingResource,
                 StringUtils.hasText(filename) ? filename : outputName(file.getOriginalFilename()));
     }
 
