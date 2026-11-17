@@ -46,7 +46,7 @@ class StandardConformanceValidationTest {
     @ParameterizedTest(name = "{0} info PDF is valid {0}")
     @EnumSource(value = PdfAStandard.class, names = "NONE", mode = EnumSource.Mode.EXCLUDE)
     void infoPdfConformsToItsOwnStandard(PdfAStandard standard) throws Exception {
-        byte[] pdf = pdfService.render(standardInfoService.toHtml(standard), standard, null);
+        byte[] pdf = pdfService.render(standardInfoService.toHtml(standard), standard);
 
         PDFAFlavour flavour = PDFAFlavour.fromString(standard.part() + standard.level().toLowerCase());
         try (PDFAParser parser = Foundries.defaultInstance()
@@ -65,7 +65,7 @@ class StandardConformanceValidationTest {
     @Test
     void plainPdfIsNotPdfA1bCompliant() throws Exception {
         byte[] pdf = pdfService.render(
-                standardInfoService.toHtml(PdfAStandard.NONE), PdfAStandard.NONE, null);
+                standardInfoService.toHtml(PdfAStandard.NONE), PdfAStandard.NONE);
 
         PDFAFlavour flavour = PDFAFlavour.fromString("1b");
         try (PDFAParser parser = Foundries.defaultInstance()

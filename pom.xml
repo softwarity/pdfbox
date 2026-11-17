@@ -19,6 +19,7 @@
 
     <properties>
         <java.version>25</java.version>
+        <twelvemonkeys.version>3.15.3</twelvemonkeys.version>
         <openhtmltopdf.version>1.1.114</openhtmltopdf.version>
         <jsoup.version>1.24.1</jsoup.version>
         <springdoc.version>3.2.0</springdoc.version>
@@ -56,6 +57,14 @@
                     <artifactId>xml-apis</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <!-- WebP decoding for ImageIO (BSD-3): PDFBox cannot embed WebP, so WebP images are decoded
+             here and re-encoded as PNG before reaching the PDF. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>${twelvemonkeys.version}</version>
         </dependency>
 
         <!-- Tolerant HTML parsing + conversion to the W3C DOM openhtmltopdf consumes -->

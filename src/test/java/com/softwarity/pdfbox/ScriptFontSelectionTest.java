@@ -36,7 +36,7 @@ class ScriptFontSelectionTest {
     @Test
     void hebrewArabicAndThaiEmbedTheirNotoFaces() throws IOException {
         Set<String> fonts = embeddedFonts(service.render(
-                STACK + "<p>שלום עולם</p><p>مرحبا بالعالم</p><p>สวัสดีชาวโลก</p>", PdfAStandard.PDF_A_2U, null));
+                STACK + "<p>שלום עולם</p><p>مرحبا بالعالم</p><p>สวัสดีชาวโลก</p>", PdfAStandard.PDF_A_2U));
 
         assertThat(fonts).anyMatch(f -> f.contains("NotoSansHebrew"));
         assertThat(fonts).anyMatch(f -> f.contains("NotoSansArabic"));
@@ -46,7 +46,7 @@ class ScriptFontSelectionTest {
 
     @Test
     void latinOnlyDocumentDoesNotPullScriptFaces() throws IOException {
-        Set<String> fonts = embeddedFonts(service.render(STACK + "<p>Hello world</p>", PdfAStandard.PDF_A_2U, null));
+        Set<String> fonts = embeddedFonts(service.render(STACK + "<p>Hello world</p>", PdfAStandard.PDF_A_2U));
 
         assertThat(fonts).noneMatch(f -> f.contains("Hebrew") || f.contains("Arabic") || f.contains("Thai")
                 || f.contains("JP"));
@@ -55,7 +55,7 @@ class ScriptFontSelectionTest {
     @Test
     void hanIdeographsUseJapaneseFaceWhenLangIsJa() throws IOException {
         Set<String> fonts = embeddedFonts(service.render(
-                "<html lang=\"ja\"><head>" + STACK + "</head><body><p>漢字</p></body></html>", PdfAStandard.PDF_A_2U, null));
+                "<html lang=\"ja\"><head>" + STACK + "</head><body><p>漢字</p></body></html>", PdfAStandard.PDF_A_2U));
 
         assertThat(fonts).anyMatch(f -> f.contains("NotoSansJP"));
     }
@@ -65,7 +65,7 @@ class ScriptFontSelectionTest {
         // Noto Sans KR ships in the Docker image, not in the jar: with lang=ko the selection must pick
         // KR (absent here), so the Japanese face must NOT be registered for these Han ideographs.
         Set<String> fonts = embeddedFonts(service.render(
-                "<html lang=\"ko\"><head>" + STACK + "</head><body><p>漢字</p></body></html>", PdfAStandard.NONE, null));
+                "<html lang=\"ko\"><head>" + STACK + "</head><body><p>漢字</p></body></html>", PdfAStandard.NONE));
 
         assertThat(fonts).noneMatch(f -> f.contains("NotoSansJP"));
     }

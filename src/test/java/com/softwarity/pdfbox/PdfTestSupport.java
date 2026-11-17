@@ -33,6 +33,27 @@ final class PdfTestSupport {
     private PdfTestSupport() {
     }
 
+    /** An opaque PNG of {@code w}x{@code h} pixels filled with {@code rgb}. */
+    static byte[] png(int w, int h, int rgb) {
+        try {
+            java.awt.image.BufferedImage img =
+                    new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            var g = img.createGraphics();
+            g.setColor(new java.awt.Color(rgb));
+            g.fillRect(0, 0, w, h);
+            g.dispose();
+            var out = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "png", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    static byte[] redPng() {
+        return png(40, 20, 0xFF0000);
+    }
+
     /** Rasterizes one page at 72 dpi (1 px per PDF point). */
     static BufferedImage renderPage(byte[] pdf, int page) throws IOException {
         try (PDDocument doc = Loader.loadPDF(pdf)) {

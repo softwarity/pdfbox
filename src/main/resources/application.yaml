@@ -58,6 +58,18 @@ pdfbox:
   # Comma-separated directories scanned recursively at startup for embeddable .ttf / .otf fonts.
   fonts:
     directories: /app/fonts,/usr/share/fonts,fonts
+  # Remote resources (http/https images, stylesheets, fonts, SVG). Resolution order for anything the
+  # HTML cites: an attached file by plain name, then a data: URI, then an http(s) URL whose host is
+  # listed below. Everything else (file:, jar:, classpath:, other relative paths, unlisted hosts) is
+  # refused, and an unresolved resource fails the render with a 422 unless ?onMissingResource=report.
+  fetch:
+    # PDFBOX_FETCH_ALLOWED_HOSTS: comma-separated exact host names, optional port
+    # (geoserver.example.svc,maps.example.org:8443). Empty = nothing is ever fetched (the default).
+    allowed-hosts: []
+    # PDFBOX_FETCH_TIMEOUT: overall time per resource (connection, redirects and body).
+    timeout: 10s
+    # PDFBOX_FETCH_MAX_BYTES: maximum size of one fetched resource.
+    max-bytes: 10MB
 
 logging:
   level:

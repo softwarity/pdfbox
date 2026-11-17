@@ -19,7 +19,7 @@ import com.sun.net.httpserver.HttpServer;
  */
 final class CountingHttpServer implements AutoCloseable {
 
-    record Route(int status, String contentType, byte[] body, String location, long delayMillis) {}
+    record Route(int status, String contentType, byte[] body, String location, long delayMillis, boolean chunked) {}
 
     private final HttpServer server;
     private final Map<String, Route> routes = new ConcurrentHashMap<>();
@@ -33,17 +33,23 @@ final class CountingHttpServer implements AutoCloseable {
     }
 
     CountingHttpServer serve(String path, String contentType, byte[] body) {
-        routes.put(path, new Route(200, contentType, body, null, 0));
+        routes.put(path, new Route(200, contentType, body, null, 0, false));
         return this;
     }
 
     CountingHttpServer slow(String path, String contentType, byte[] body, long delayMillis) {
-        routes.put(path, new Route(200, contentType, body, null, delayMillis));
+        routes.put(path, new Route(200, contentType, body, null, delayMillis, false));
+        return this;
+    }
+
+    /** No Content-Length: the size is only known while the body streams in. */
+    CountingHttpServer chunked(String path, String contentType, byte[] body) {
+        routes.put(path, new Route(200, contentType, body, null, 0, true));
         return this;
     }
 
     CountingHttpServer redirect(String path, String location) {
-        routes.put(path, new Route(302, null, new byte[0], location, 0));
+        routes.put(path, new Route(302, null, new byte[0], location, 0, false));
         return this;
     }
 
@@ -86,7 +92,8 @@ final class CountingHttpServer implements AutoCloseable {
             if (route.contentType() != null) {
                 exchange.getResponseHeaders().add("Content-Type", route.contentType());
             }
-            exchange.sendResponseHeaders(route.status(), route.body().length == 0 ? -1 : route.body().length);
+            exchange.sendResponseHeaders(route.status(),
+                    route.chunked() ? 0 : route.body().length == 0 ? -1 : route.body().length);
             if (route.body().length > 0) {
                 try (OutputStream out = exchange.getResponseBody()) {
                     out.write(route.body());

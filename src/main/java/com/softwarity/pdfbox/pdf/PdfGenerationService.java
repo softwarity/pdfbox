@@ -1,10 +1,18 @@
 package com.softwarity.pdfbox.pdf;
 
 import java.io.ByteArrayOutputStream;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.softwarity.pdfbox.resource.Attachments;
+import com.softwarity.pdfbox.resource.MissingResourcePolicy;
+import com.softwarity.pdfbox.resource.RenderResources;
+import com.softwarity.pdfbox.resource.ResourceFetcher;
+import com.softwarity.pdfbox.resource.UnresolvedResource;
+import com.softwarity.pdfbox.resource.UnresolvedResourcesException;
 import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
 import com.openhtmltopdf.svgsupport.BatikSVGDrawer.SvgScriptMode;
 
@@ -23,30 +31,46 @@ public class PdfGenerationService {
     private final FontService fontService;
     private final HtmlNormalizer htmlNormalizer;
     private final ColorProfiles colorProfiles;
+    private final ResourceFetcher fetcher;
+    private final SvgSanitizer svgSanitizer;
 
     public PdfGenerationService(FontService fontService, HtmlNormalizer htmlNormalizer,
-                                ColorProfiles colorProfiles) {
+                                ColorProfiles colorProfiles, ResourceFetcher fetcher,
+                                SvgSanitizer svgSanitizer) {
         this.fontService = fontService;
         this.htmlNormalizer = htmlNormalizer;
         this.colorProfiles = colorProfiles;
+        this.fetcher = fetcher;
+        this.svgSanitizer = svgSanitizer;
     }
 
-    /** Renders HTML to a PDF document (see {@link #render(String, PdfAStandard, String)}). */
+    /** The PDF and the resources that could not be resolved (empty unless the policy is REPORT). */
+    public record RenderResult(byte[] pdf, List<UnresolvedResource> unresolved) {}
+
+    /**
+     * Renders self-contained HTML (no attachments); any unresolvable resource fails the render.
+     *
+     * @throws UnresolvedResourcesException if the document references a resource that cannot be used
+     */
     public byte[] render(String html, PdfAStandard standard) {
-        return render(html, standard, null);
+        return render(html, standard, Attachments.none(), MissingResourcePolicy.FAIL).pdf();
     }
 
     /**
      * Renders HTML to a PDF document.
      *
-     * @param html     source HTML/CSS (tolerant of malformed markup)
-     * @param standard target output standard
-     * @param baseUri  optional base URI to resolve relative resources; usually {@code null} since
-     *                 everything should be inlined for offline generation
-     * @return the generated PDF bytes
+     * @param html        source HTML/CSS (tolerant of malformed markup)
+     * @param standard    target output standard
+     * @param attachments files the HTML cites by plain name (CSS, images, SVG, fonts)
+     * @param policy      {@code FAIL}: throw {@link UnresolvedResourcesException} if any resource
+     *                    cannot be resolved; {@code REPORT}: render anyway and return the list
+     * @return the generated PDF bytes and the unresolved resources
      */
-    public byte[] render(String html, PdfAStandard standard, String baseUri) {
-        org.w3c.dom.Document doc = htmlNormalizer.toW3c(html);
+    public RenderResult render(String html, PdfAStandard standard, Attachments attachments,
+                               MissingResourcePolicy policy) {
+        // One resource policy per render: resolution, allow-list, fetch cache, unresolved list.
+        RenderResources resources = new RenderResources(attachments, fetcher, svgSanitizer);
+        org.w3c.dom.Document doc = htmlNormalizer.toW3c(html, resources.svgInliner(null));
 
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
@@ -54,7 +78,16 @@ public class PdfGenerationService {
         // reference has been resolved (or refused) and inlined beforehand. One drawer per render: it
         // holds the fonts and user agent of this document.
         builder.useSVGDrawer(new BatikSVGDrawer(SvgScriptMode.SECURE, Set.of("data")));
-        fontService.registerFonts(builder, html, mentionsSvg(html));
+        String content = attachments.isEmpty() ? html : html + "\n" + attachments.textContent();
+        fontService.registerFonts(builder, content, mentionsSvg(content));
+
+        // Every stylesheet, @font-face, image and SVG load goes through RenderResources. The stream
+        // factories replace openhtmltopdf's defaults wholesale (no URL.openStream fallback for the
+        // schemes it serves), and the access controller refuses every other scheme before any load.
+        builder.useUriResolver(resources);
+        builder.useExternalResourceAccessControl(resources::allow,
+                ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
+        builder.useProtocolsStreamImplementation(resources, RenderResources.SCHEMES);
 
         if (standard.isPdfA()) {
             builder.usePdfAConformance(standard.conformance());
@@ -64,13 +97,24 @@ public class PdfGenerationService {
             }
         }
 
-        builder.withW3cDocument(doc, baseUri == null ? "" : baseUri);
+        builder.withW3cDocument(doc, "");
 
+        byte[] pdf;
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             builder.toStream(out);
             builder.run();
-            byte[] pdf = out.toByteArray();
-            return standard.isPdfA() ? normalizeVersion(pdf, standard.pdfVersion()) : pdf;
+            pdf = out.toByteArray();
+        } catch (Exception e) {
+            throw new PdfGenerationException(e.getMessage(), e);
+        }
+
+        List<UnresolvedResource> unresolved = resources.unresolved();
+        if (!unresolved.isEmpty() && policy == MissingResourcePolicy.FAIL) {
+            throw new UnresolvedResourcesException(unresolved);
+        }
+        try {
+            return new RenderResult(standard.isPdfA() ? normalizeVersion(pdf, standard.pdfVersion()) : pdf,
+                    unresolved);
         } catch (Exception e) {
             throw new PdfGenerationException(e.getMessage(), e);
         }

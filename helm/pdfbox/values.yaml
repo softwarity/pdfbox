@@ -21,6 +21,17 @@ fullnameOverride: ""
 #     PDFBOX_BASE_PATH: /pdfbox
 env: {}
 
+# Remote resources (images, stylesheets, fonts, SVG cited by http(s) URL). Nothing is fetched unless
+# its host is listed here; everything else must be attached to the request or inlined as data: URIs.
+fetch:
+  # PDFBOX_FETCH_ALLOWED_HOSTS — exact host names, optional port. Empty = no network access at all.
+  # e.g. [geoserver.example.svc, "maps.example.org:8443"]
+  allowedHosts: []
+  # PDFBOX_FETCH_TIMEOUT — overall time per resource (connection, redirects and body).
+  timeout: 10s
+  # PDFBOX_FETCH_MAX_BYTES — maximum size of one fetched resource.
+  maxBytes: 10MB
+
 serviceAccount:
   create: true
   automount: true

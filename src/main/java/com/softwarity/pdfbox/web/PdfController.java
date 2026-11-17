@@ -8,8 +8,11 @@ import java.util.List;
 import com.softwarity.pdfbox.pdf.PdfAStandard;
 import com.softwarity.pdfbox.pdf.PdfGenerationService;
 import com.softwarity.pdfbox.pdf.StandardInfoService;
+import com.softwarity.pdfbox.resource.Attachments;
+import com.softwarity.pdfbox.resource.MissingResourcePolicy;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -51,7 +54,9 @@ public class PdfController {
      * standard with {@code ?standard=...} (defaults to the configured standard).
      */
     @Operation(summary = "Convert raw HTML to PDF",
-            description = "HTML in the request body, standard as a query parameter. Returns application/pdf.")
+            description = "HTML in the request body, standard as a query parameter. Returns application/pdf. "
+                    + "Resources the HTML cites must be data: URIs or http(s) URLs on an allowed host "
+                    + "(PDFBOX_FETCH_ALLOWED_HOSTS); otherwise 422, or a header with onMissingResource=report.")
     @PostMapping(
             value = "/pdf",
             consumes = {MediaType.TEXT_HTML_VALUE, MediaType.APPLICATION_XHTML_XML_VALUE,
@@ -60,11 +65,12 @@ public class PdfController {
     public ResponseEntity<byte[]> generate(
             @RequestBody String html,
             @RequestParam(name = "standard", required = false) @Nullable PdfAStandard standard,
-            @RequestParam(name = "filename", defaultValue = "document.pdf") String filename) {
+            @RequestParam(name = "filename", defaultValue = "document.pdf") String filename,
+            @RequestParam(name = "onMissingResource", required = false)
+            @Parameter(description = MISSING_DOC, schema = @Schema(allowableValues = {"fail", "report"}))
+            @Nullable MissingResourcePolicy onMissingResource) {
 
-        PdfAStandard target = standard != null ? standard : defaultStandard;
-        byte[] pdf = pdfService.render(html, target, null);
-        return pdfResponse(pdf, filename);
+        return render(html, Attachments.none(), standard, onMissingResource, filename);
     }
 
     /**
@@ -84,16 +90,18 @@ public class PdfController {
             @Schema(type = "string", format = "binary", description = "Standalone HTML file to convert")
             MultipartFile file,
             @RequestParam(name = "standard", required = false) @Nullable PdfAStandard standard,
-            @RequestParam(name = "filename", required = false) @Nullable String filename)
+            @RequestParam(name = "filename", required = false) @Nullable String filename,
+            @RequestParam(name = "onMissingResource", required = false)
+            @Parameter(description = MISSING_DOC, schema = @Schema(allowableValues = {"fail", "report"}))
+            @Nullable MissingResourcePolicy onMissingResource)
             throws IOException {
 
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("No HTML file was uploaded.");
         }
         String html = new String(file.getBytes(), StandardCharsets.UTF_8);
-        PdfAStandard target = standard != null ? standard : defaultStandard;
-        byte[] pdf = pdfService.render(html, target, null);
-        return pdfResponse(pdf, StringUtils.hasText(filename) ? filename : outputName(file.getOriginalFilename()));
+        return render(html, Attachments.none(), standard, onMissingResource,
+                StringUtils.hasText(filename) ? filename : outputName(file.getOriginalFilename()));
     }
 
     /** Lists the supported output standards. */
@@ -117,12 +125,32 @@ public class PdfController {
 
         PdfAStandard target = standard != null ? standard : defaultStandard;
         String html = standardInfoService.toHtml(target);
-        byte[] pdf = pdfService.render(html, target, null);
+        byte[] pdf = pdfService.render(html, target);
         return pdfResponse(pdf, "pdf-info-" + target.name() + ".pdf", false);
     }
 
-    private static ResponseEntity<byte[]> pdfResponse(byte[] pdf, String filename) {
-        return pdfResponse(pdf, filename, true);
+    private static final String MISSING_DOC = "What to do when a cited resource cannot be resolved: "
+            + "'fail' (default) answers 422 listing each one; 'report' returns the PDF anyway and lists "
+            + "them in the X-Pdfbox-Unresolved-Resources header.";
+
+    private ResponseEntity<byte[]> render(String html, Attachments attachments, @Nullable PdfAStandard standard,
+                                          @Nullable MissingResourcePolicy policy, String filename) {
+        PdfAStandard target = standard != null ? standard : defaultStandard;
+        MissingResourcePolicy onMissing = policy != null ? policy : MissingResourcePolicy.FAIL;
+        PdfGenerationService.RenderResult result = pdfService.render(html, target, attachments, onMissing);
+
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment().filename(filename).build().toString())
+                .contentType(MediaType.APPLICATION_PDF);
+        if (onMissing == MissingResourcePolicy.REPORT) {
+            response.header(UnresolvedResourcesHeader.COUNT, String.valueOf(result.unresolved().size()));
+            if (!result.unresolved().isEmpty()) {
+                response.header(UnresolvedResourcesHeader.NAME,
+                        UnresolvedResourcesHeader.format(result.unresolved()));
+            }
+        }
+        return response.body(result.pdf());
     }
 
     private static ResponseEntity<byte[]> pdfResponse(byte[] pdf, String filename, boolean attachment) {

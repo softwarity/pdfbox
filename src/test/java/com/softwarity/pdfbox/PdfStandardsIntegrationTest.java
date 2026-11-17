@@ -31,7 +31,7 @@ class PdfStandardsIntegrationTest {
     @ParameterizedTest
     @EnumSource(value = PdfAStandard.class, names = "NONE", mode = EnumSource.Mode.EXCLUDE)
     void everyPdfAStandardCarriesTheRightVersionAndConformance(PdfAStandard standard) {
-        byte[] pdf = service.render(HTML, standard, null);
+        byte[] pdf = service.render(HTML, standard);
         String head = new String(pdf, 0, 8, StandardCharsets.ISO_8859_1);
         String body = new String(pdf, StandardCharsets.ISO_8859_1);
 
@@ -51,7 +51,7 @@ class PdfStandardsIntegrationTest {
     @ParameterizedTest
     @EnumSource(value = PdfAStandard.class, names = {"PDF_A_1A", "PDF_A_2A", "PDF_A_3A"})
     void accessibleLevelsEmitTaggedStructure(PdfAStandard standard) {
-        byte[] pdf = service.render(HTML, standard, null);
+        byte[] pdf = service.render(HTML, standard);
         String body = new String(pdf, StandardCharsets.ISO_8859_1);
         // Tagged / PDF-UA output carries a structure tree and a MarkInfo dictionary.
         assertThat(body).contains("StructTreeRoot");
@@ -60,7 +60,7 @@ class PdfStandardsIntegrationTest {
 
     @Test
     void basicLevelIsNotTagged() {
-        byte[] pdf = service.render(HTML, PdfAStandard.PDF_A_2B, null);
+        byte[] pdf = service.render(HTML, PdfAStandard.PDF_A_2B);
         String body = new String(pdf, StandardCharsets.ISO_8859_1);
         // The visual "B" level must not enable the accessibility tagging.
         assertThat(body).doesNotContain("StructTreeRoot");
@@ -68,7 +68,7 @@ class PdfStandardsIntegrationTest {
 
     @Test
     void plainPdfHasNoPdfAIdentification() {
-        byte[] pdf = service.render(HTML, PdfAStandard.NONE, null);
+        byte[] pdf = service.render(HTML, PdfAStandard.NONE);
         assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).startsWith("%PDF-");
         assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).doesNotContain("pdfaid:part");
     }

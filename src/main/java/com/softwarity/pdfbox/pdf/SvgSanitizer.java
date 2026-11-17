@@ -49,6 +49,9 @@ public class SvgSanitizer {
     private static final Pattern CSS_FONT_FAMILY =
             Pattern.compile("(font-family\\s*:\\s*)([^;}\"]+|\"[^\"]*\")", Pattern.CASE_INSENSITIVE);
 
+    /** Elements that are invalid for Batik without an href (lower-cased local names). */
+    private static final java.util.Set<String> REQUIRES_HREF = java.util.Set.of("image", "use", "feimage");
+
     /** The CSS default font stack, minus the trailing generic (Batik would map it to a host font). */
     private final String fontStack;
 
@@ -82,6 +85,7 @@ public class SvgSanitizer {
                 el.remove();
                 continue;
             }
+            boolean dropElement = false;
             for (Attribute attr : new ArrayList<>(el.attributes().asList())) {
                 String key = attr.getKey();
                 String local = localName(key).toLowerCase(Locale.ROOT);
@@ -89,10 +93,15 @@ public class SvgSanitizer {
                     el.removeAttr(key);
                 } else if (local.equals("href")) {
                     String rewritten = rewriteReference(attr.getValue(), inliner);
-                    if (rewritten == null) {
-                        el.removeAttr(key);
-                    } else {
-                        el.attr(key, rewritten);
+                    el.removeAttr(key);
+                    if (rewritten != null) {
+                        // Batik implements SVG 1.1, which only knows xlink:href (SVG 2's bare href
+                        // is ignored): always hand it the xlink form.
+                        el.attr("xlink:href", rewritten);
+                    } else if (REQUIRES_HREF.contains(name)) {
+                        // Batik rejects the WHOLE drawing over one <image>/<use> without href: drop
+                        // just that element (the inliner has already recorded why).
+                        dropElement = true;
                     }
                 } else if (local.equals("style")) {
                     el.attr(key, withFontFallback(rewriteCss(attr.getValue(), inliner)));
@@ -103,12 +112,19 @@ public class SvgSanitizer {
                     el.attr(key, rewriteCss(attr.getValue(), inliner));
                 }
             }
+            if (dropElement) {
+                el.remove();
+                continue;
+            }
             if (name.equals("style")) {
                 rewriteStyleElement(el, inliner);
             }
         }
         if (!svgRoot.hasAttr("font-family")) {
             svgRoot.attr("font-family", fontStack);
+        }
+        if (!svgRoot.hasAttr("xmlns:xlink")) {
+            svgRoot.attr("xmlns:xlink", "http://www.w3.org/1999/xlink");
         }
     }
 
