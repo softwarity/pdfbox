@@ -54,6 +54,15 @@ spec:
             - name: PDFBOX_FETCH_MAX_BYTES
               value: {{ .Values.fetch.maxBytes | quote }}
             {{- end }}
+            {{- /* Admission control (PDFBOX_RENDER_*); an explicit entry in .Values.env wins. */}}
+            {{- if not (hasKey .Values.env "PDFBOX_RENDER_MAX_CONCURRENT") }}
+            - name: PDFBOX_RENDER_MAX_CONCURRENT
+              value: {{ .Values.render.maxConcurrent | quote }}
+            {{- end }}
+            {{- if not (hasKey .Values.env "PDFBOX_RENDER_QUEUE_TIMEOUT") }}
+            - name: PDFBOX_RENDER_QUEUE_TIMEOUT
+              value: {{ .Values.render.queueTimeout | quote }}
+            {{- end }}
             {{- /* Multipart limits (PDFBOX_UPLOAD_*); an explicit entry in .Values.env wins. */}}
             {{- if not (hasKey .Values.env "PDFBOX_UPLOAD_MAX_PART_SIZE") }}
             - name: PDFBOX_UPLOAD_MAX_PART_SIZE

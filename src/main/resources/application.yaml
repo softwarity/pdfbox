@@ -62,6 +62,12 @@ pdfbox:
   # Comma-separated directories scanned recursively at startup for embeddable .ttf / .otf fonts.
   fonts:
     directories: /app/fonts,/usr/share/fonts,fonts
+  # Admission control: renders running at once (CPU-bound; each holds its upload in memory).
+  render:
+    # PDFBOX_RENDER_MAX_CONCURRENT: 0 = number of available processors.
+    max-concurrent: 0
+    # PDFBOX_RENDER_QUEUE_TIMEOUT: wait for a free slot at most this long, then answer 503 + Retry-After.
+    queue-timeout: 10s
   # Multipart uploads (POST /api/v1/pdf and /pdf/upload with attached files).
   upload:
     # PDFBOX_UPLOAD_MAX_PART_SIZE: maximum size of one part (the HTML or one attached file).
