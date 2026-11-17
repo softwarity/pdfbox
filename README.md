@@ -1,9 +1,10 @@
 # pdfbox
 
 A tiny, self-contained **Spring Boot** service that turns **HTML into PDF — including PDF/A**
-(PDF/A-1a, 1b, 2a, 2b, 2u, 3a, 3b, 3u). Push HTML, get the PDF binary back. No external services,
-no runtime configuration, fonts bundled for offline generation of exotic scripts (Vietnamese,
-Hebrew, Arabic, Thai, Devanagari, Japanese/CJK…).
+(PDF/A-1a, 1b, 2a, 2b, 2u, 3a, 3b, 3u). Push HTML (and the images, SVG charts, stylesheets and fonts
+it cites), get the PDF binary back. No external services, no runtime configuration, no network access
+unless you allow it, fonts bundled for offline generation of exotic scripts (Vietnamese, Hebrew,
+Arabic, Thai, Devanagari, Japanese/CJK…).
 
 ```
 POST  your HTML  ──►  pdfbox  ──►  PDF/A binary
@@ -47,8 +48,8 @@ mvn package && java -jar target/pdfbox.jar
 
 | Method & path | Description |
 |---|---|
-| `POST /api/v1/pdf` | Body = HTML. Query params: `standard` (see below, default `PDF_A_1B`), `filename` (default `document.pdf`). Returns `application/pdf`. |
-| `POST /api/v1/pdf/upload` | `multipart/form-data`: `file` = a standalone HTML file, plus `standard` and `filename`. Returns `application/pdf`. This is the form Swagger UI shows as a file picker. |
+| `POST /api/v1/pdf` | Body = HTML, **or** `multipart/form-data` (see below). Query params: `standard` (see below, default `PDF_A_1B`), `filename` (default `document.pdf`), `onMissingResource` (`fail` default, or `report`). Returns `application/pdf`. |
+| `POST /api/v1/pdf/upload` | `multipart/form-data`: `file` = the HTML, `resources` = files it cites (repeatable), plus `standard`, `filename`, `onMissingResource`. Same as the multipart form of `/pdf`. This is the form Swagger UI shows with file pickers. |
 | `GET /api/v1/standards` | Lists the supported standards. |
 | `GET /api/v1/pdf-info` | Query param `standard`. Returns a PDF, **conforming to that standard**, that documents the constraints the standard enforces — a self-describing reference page and end-to-end check. |
 | `GET /v3/api-docs` | OpenAPI 3 description (JSON). |
@@ -67,6 +68,75 @@ curl -X POST "http://localhost:8080/api/v1/pdf/upload" \
      -o invoice.pdf
 ```
 
+### HTML with attached files (multipart)
+
+Send the HTML as the `file` part and every file it cites as a `resources` part — stylesheets
+(`.css`), images (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`, `.svg`) and TrueType fonts (`.ttf`). The
+HTML cites them by their **plain file name**; the part's file name is what counts:
+
+```html
+<link rel="stylesheet" href="page.css">
+<style>@font-face { font-family: Logo; src: url(logo-font.ttf) }</style>
+<img src="sigwx.svg" alt="Significant weather"> <img src="wind.png" alt="Winds aloft">
+```
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/pdf?standard=PDF_A_2U" \
+     -F "file=@briefing.html;type=text/html" \
+     -F "resources=@page.css" \
+     -F "resources=@sigwx.svg" \
+     -F "resources=@wind.png" \
+     -F "resources=@logo-font.ttf" \
+     -o briefing.pdf
+```
+
+Attached files live in memory for that request only (never written to disk). A name with `/`, `\`,
+`..` or a control character, a duplicate name, an unknown part or a file whose content does not match
+its type is a **400**; above `PDFBOX_UPLOAD_MAX_PART_SIZE` / `PDFBOX_UPLOAD_MAX_TOTAL_SIZE` it is a
+**413**. WebP is converted to PNG (PDF cannot carry WebP). A request with only `file` behaves exactly
+as before.
+
+### Resources: resolved, or refused — never silently dropped
+
+Everything the document cites — stylesheets, `@font-face`, images, SVG files and the references inside
+SVGs — is resolved in this order:
+
+1. an **attached file**, by plain name (`logo.png`, `./logo.png`);
+2. a **`data:` URI**;
+3. an **`http(s)` URL**, *only* if its host is in `PDFBOX_FETCH_ALLOWED_HOSTS` (empty by default:
+   **nothing is fetched**). Every redirect hop is re-checked, the fetch is bounded by
+   `PDFBOX_FETCH_TIMEOUT` and `PDFBOX_FETCH_MAX_BYTES`, and a resource cited several times is fetched
+   once.
+
+Everything else is refused: `file:`, `jar:`, `classpath:`, relative paths that name no attached file,
+unlisted hosts. The bundled fonts are not concerned. By default an unresolved resource fails the
+render with a **422** listing each one and why (`not-allowed`, `not-found`, `timeout`, `too-large`,
+`fetch-error`):
+
+```text
+2 resource(s) could not be resolved:
+- sigwx.svg : not-found — no attached file named 'sigwx.svg'
+- https://tiles.example.org/fir.png : not-allowed — host 'tiles.example.org' is not in PDFBOX_FETCH_ALLOWED_HOSTS (empty: nothing is fetched)
+```
+
+With `?onMissingResource=report` the PDF is returned anyway and the list travels in response headers
+(an RFC 8941 list; `%` and non-ASCII bytes of each reference are percent-encoded):
+
+```text
+X-Pdfbox-Unresolved-Count: 2
+X-Pdfbox-Unresolved-Resources: "sigwx.svg";reason=not-found, "https://tiles.example.org/fir.png";reason=not-allowed
+```
+
+### SVG
+
+Inline `<svg>` and attached / fetched `.svg` files are drawn as vector art (Apache Batik). Scripts and
+`on*` handlers are removed and never run; Batik itself may only read `data:` URIs — every other
+reference inside an SVG goes through the rules above. SVG text is drawn with the bundled fonts, never
+with host fonts. PDF/A-2/3 accept SVG transparency; **PDF/A-1 forbids transparency**, see the
+conformance notes below.
+
+### Errors
+
 An invalid `standard` returns a plain-text **400** that names the bad value and lists the accepted
 ones, so you never have to guess:
 
@@ -74,6 +144,10 @@ ones, so you never have to guess:
 curl "http://localhost:8080/api/v1/pdf-info?standard=foo"
 # Invalid value 'foo' for parameter 'standard'. Supported values: NONE, PDF_A_1A, PDF_A_1B, ...
 ```
+
+All error bodies are UTF-8 plain text: **400** bad input, **413** upload too large, **422**
+unresolved resources, **503** + `Retry-After` when every render slot stays busy longer than
+`PDFBOX_RENDER_QUEUE_TIMEOUT`.
 
 ### Standard, self-described
 
@@ -102,8 +176,8 @@ SPRING_PROFILES_ACTIVE=dev java -jar target/pdfbox.jar
 docker run --rm -p 8080:8080 -e SPRING_PROFILES_ACTIVE=dev softwarity/pdfbox:latest
 ```
 
-In Swagger UI, `POST /api/v1/pdf/upload` renders a file picker: choose a standalone HTML file, pick a
-`standard`, and the response download is your PDF.
+In Swagger UI, `POST /api/v1/pdf/upload` renders a file picker for the HTML and an “add item” list of
+pickers for `resources`: pick the files, a `standard`, and the response download is your PDF.
 
 ### Fonts & exotic scripts
 
@@ -155,6 +229,10 @@ freeze it to a static instance first (the image does this for the Noto CJK varia
   the source omits them (see `PDFBOX_DEFAULT_LANG` / `PDFBOX_DEFAULT_TITLE`), but for genuinely
   accessible output you should supply accurate ones — generic defaults satisfy the validator, not a
   screen-reader user.
+- **Transparency and PDF/A-1.** PDF/A-1 forbids transparency. CSS `rgba()` / `opacity` are already
+  neutralised by the engine, but SVG `opacity`, `fill-opacity`, `stop-opacity` and PNG images with an
+  alpha channel are currently rendered as-is and the file is then **not** PDF/A-1 conformant (veraPDF
+  §6.4). Use PDF/A-2 or PDF/A-3 for such content, or flatten it beforehand. PDF/A-2/3 are fine.
 - Always validate critical output with [veraPDF](https://verapdf.org/):
   ```bash
   verapdf --flavour 1b document.pdf
@@ -171,6 +249,13 @@ Sensible defaults mean you normally configure nothing. If needed, override via e
 | `PDFBOX_DEFAULT_FONT_FAMILY` | Noto stack | CSS font stack applied when the HTML sets none. |
 | `PDFBOX_DEFAULT_LANG` | `en` | `<html lang>` injected when the source omits it (required by the accessible "A" levels / PDF/UA). |
 | `PDFBOX_DEFAULT_TITLE` | `Document` | `<title>` injected when the source has none and no usable `<h1>/<h2>/<h3>` (required by PDF/UA). |
+| `PDFBOX_FETCH_ALLOWED_HOSTS` | _(empty)_ | Exact host names (optional `:port`) remote resources may be fetched from. Empty = **nothing is fetched**. No port = default port (80/443) only. |
+| `PDFBOX_FETCH_TIMEOUT` | `10s` | Overall time per remote resource (connection, redirects, body). |
+| `PDFBOX_FETCH_MAX_BYTES` | `10MB` | Maximum size of one remote resource. |
+| `PDFBOX_UPLOAD_MAX_PART_SIZE` | `20MB` | Maximum size of one multipart part (the HTML or one attached file). |
+| `PDFBOX_UPLOAD_MAX_TOTAL_SIZE` | `50MB` | Maximum size of a whole multipart request. |
+| `PDFBOX_RENDER_MAX_CONCURRENT` | `0` (= CPUs) | Renders running at once; others wait for a slot. Bounds CPU and memory (≈ this × upload total). |
+| `PDFBOX_RENDER_QUEUE_TIMEOUT` | `10s` | Longest wait for a render slot before a `503` + `Retry-After`. |
 | `PDFBOX_BASE_PATH` | _(empty)_ | Base path prefixed to **every** route, set at startup. Must start with `/`. |
 | `SPRING_PROFILES_ACTIVE` | _(none)_ | Set to `dev` to enable Swagger UI. |
 | `JAVA_OPTS` | _(empty)_ | Extra JVM flags. |
@@ -230,12 +315,15 @@ The published **artifact is the multi-arch Docker image** (`docker.io/softwarity
 ## How it works
 
 ```
-HTML ──jsoup──► well-formed W3C DOM ──openhtmltopdf──► PDF (PDFBox) ──► PDF/A normalization ──► bytes
+HTML ──jsoup──► well-formed W3C DOM ──openhtmltopdf (+ Batik for SVG)──► PDF (PDFBox) ──► PDF/A post-pass ──► bytes
+                      ▲ every resource: attached file │ data: │ allowed http(s) host — or refused & reported
 ```
 
-- **jsoup** parses arbitrary/malformed HTML into a clean DOM.
-- **openhtmltopdf** renders the DOM to PDF/A on top of **Apache PDFBox**.
-- A small PDFBox pass fixes the PDF/A-1 header version and cross-reference table.
+- **jsoup** parses arbitrary/malformed HTML into a clean DOM; inline SVG is sanitized there.
+- **openhtmltopdf** renders the DOM to PDF/A on top of **Apache PDFBox**, SVG through **Apache Batik**.
+- One per-request resolver serves every stylesheet, font, image and SVG reference (see *Resources*).
+- A small PDFBox pass fixes the PDF/A header version and cross-reference table and clears image
+  interpolation flags (forbidden in every PDF/A part).
 
 ## Built with open source
 
@@ -244,6 +332,8 @@ This project stands on the shoulders of these open-source projects — thank you
 - [openhtmltopdf](https://github.com/openhtmltopdf/openhtmltopdf) — HTML/CSS → PDF/A & PDF/UA engine (LGPL-2.1), a fork of
 - [Flying Saucer](https://github.com/flyingsaucerproject/flyingsaucer) (LGPL-2.1)
 - [Apache PDFBox](https://pdfbox.apache.org/) — PDF library (Apache-2.0)
+- [Apache Batik](https://xmlgraphics.apache.org/batik/) — SVG rendering (Apache-2.0)
+- [TwelveMonkeys ImageIO](https://github.com/haraldk/TwelveMonkeys) — WebP decoding (BSD-3-Clause)
 - [jsoup](https://jsoup.org/) — HTML parser (MIT)
 - [Spring Boot](https://spring.io/projects/spring-boot) (Apache-2.0)
 - [Noto fonts](https://fonts.google.com/noto) (SIL Open Font License 1.1)

@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A single Spring Boot service (`com.softwarity.pdfbox`) that converts HTML to PDF, including
-PDF/A (parts 1/2/3, levels A/B/U). Fully offline: no external services, no runtime config, all
-fonts and the sRGB profile bundled. The whole public contract is "POST HTML, get an
-`application/pdf` back". JDK 25 required.
+A single Spring Boot 4 service (`com.softwarity.pdfbox`) that converts HTML to PDF, including
+PDF/A (parts 1/2/3, levels A/B/U). Fully offline: no external services, no network access unless
+`PDFBOX_FETCH_ALLOWED_HOSTS` lists a host, all fonts and the sRGB profile bundled. The public
+contract is "POST HTML (optionally multipart with the files it cites), get an `application/pdf`
+back". JDK 25 required.
 
 ## Commands
 
@@ -24,11 +25,13 @@ Swagger UI is **dev-profile only**; the OpenAPI JSON at `/v3/api-docs` is always
 
 ## The rendering pipeline
 
-Everything funnels through `PdfGenerationService.render(html, standard, baseUri)`. The flow:
+Everything funnels through `PdfGenerationService.render(html, standard, attachments, policy)`
+(`render(html, standard)` = no attachments, fail on unresolved). The flow:
 
 ```
-HTML ──HtmlNormalizer(jsoup)──► W3C DOM ──openhtmltopdf/PdfRendererBuilder──► PDF (PDFBox)
+HTML ──HtmlNormalizer(jsoup, SvgSanitizer)──► W3C DOM ──openhtmltopdf + Batik──► PDF (PDFBox)
      ──(PDF/A only) normalizeVersion()──► bytes
+          ▲ every resource load goes through RenderResources (one per render)
 ```
 
 - **`HtmlNormalizer`** parses possibly-malformed HTML with jsoup, injects a UTF-8 `<meta>` and a
@@ -46,6 +49,28 @@ HTML ──HtmlNormalizer(jsoup)──► W3C DOM ──openhtmltopdf/PdfRendere
   in place** because PDFBox refuses to downgrade the header line. The in-place patch relies on the
   replacement string being the same length (1.4 ↔ 1.7) to keep xref byte offsets valid. Touch this
   carefully and re-validate output with veraPDF (`verapdf --flavour 1b document.pdf`).
+- **`normalizeVersion()`** also clears `/Interpolate` on every image (forbidden by all PDF/A parts;
+  Batik paints SVG group `opacity` as an interpolated image). Note: since openhtmltopdf 1.1.114 the
+  engine already writes PDF/A-1 as `%PDF-1.4` with a classic xref table, so the PDF/A-1 part of this
+  pass is no longer strictly needed (kept on purpose); parts 2/3 still rely on it for the 1.7 header.
+
+## Resources (package `resource`) — deny by default
+
+`RenderResources` is, for one render, the `FSUriResolver`, the post-resolution access controller
+(`allow`, only called for loads — not for `<a href>`) and the `FSStreamFactory` for
+`data`/`http`/`https`/`pdfbox-attachment`/`pdfbox-missing` (`useProtocolsStreamImplementation`
+**replaces** openhtmltopdf's default factory map). Order: attached file by plain name →
+`data:` → `http(s)` on an allowed host (`ResourceFetcher`: manual redirects re-checked per hop,
+one deadline, size cap, per-render cache). Anything else is refused and **recorded**
+(`UnresolvedResource` + reason); `MissingResourcePolicy.FAIL` turns the list into
+`UnresolvedResourcesException` → 422, `REPORT` returns it (headers `X-Pdfbox-Unresolved-*`).
+Fetched/attached SVG is passed through `SvgSanitizer` with `svgInliner(base)`, which rewrites every
+external reference to a `data:` URI under the same policy; Batik runs as
+`BatikSVGDrawer(SECURE, {"data"})`. Gotchas learned the hard way: Batik 1.17 only knows
+`xlink:href` (bare `href` is normalised), and an `<image>`/`<use>` left without href makes Batik
+drop the **whole** SVG (such elements are removed). WebP is converted to PNG (`MediaTypes`) because
+PDFBox cannot embed it. Bundled fonts never go through the resolver; Batik only gets fonts with
+`FSFontUseCase.SVG`, added by `FontService` only when the content mentions SVG.
 
 ## PdfAStandard
 
@@ -99,12 +124,15 @@ The non-obvious mechanics, all learned the hard way (don't regress them):
 
 ## Web layer
 
-- `PdfController` (`/api/v1`): `POST /pdf` (HTML body), `POST /pdf/upload` (multipart, the form
-  Swagger renders as a file picker), `GET /standards`, and `GET /pdf-info` (self-describing PDF of a
-  standard's constraints, served `inline`). All share `pdfResponse(...)` and fall back to the
-  configured default standard when none is given.
+- `PdfController` (`/api/v1`): `POST /pdf` (HTML body), `POST /pdf` + `POST /pdf/upload`
+  (multipart: `file` = HTML, repeatable `resources` = attached files, validated by
+  `AttachmentValidator`), `GET /standards`, and `GET /pdf-info` (self-describing PDF of a
+  standard's constraints, served `inline`). They fall back to the configured default standard.
+- `MultipartConfig` builds the `MultipartConfigElement` from `UploadProperties` (threshold = max part
+  size: nothing spills to disk). `RenderLimitFilter` (a filter, so before the multipart body is read)
+  admits at most `pdfbox.render.max-concurrent` renders, else 503 + `Retry-After`.
 - `GlobalExceptionHandler` maps `PdfGenerationException` and the binding/argument exceptions to a
-  plain-text **400**. `MethodArgumentTypeMismatchException` has its own handler that, for any enum
+  plain-text (UTF-8) **400**, upload limits to **413**, unresolved resources to **422**. `MethodArgumentTypeMismatchException` has its own handler that, for any enum
   param (e.g. a bad `?standard=`), names the offending value and lists the accepted values via
   `getRequiredType().getEnumConstants()` — so it stays correct as standards are added. New user-input
   failure modes should map here, not bubble as 500s.
@@ -113,8 +141,9 @@ The non-obvious mechanics, all learned the hard way (don't regress them):
 
 ## Tests
 
-`PdfGenerationIntegrationTest` is a `@SpringBootTest` + `MockMvc` test. `src/test/resources/`
-overrides the font config to a tiny Liberation Sans set (`target/test-classes/fonts`) for speed, so
+`PdfGenerationIntegrationTest` is a `@SpringBootTest` + `MockMvc` test. `src/test/resources/
+application.yaml` **shadows** the main one entirely (main yaml values are not loaded in tests — rely on
+`@DefaultValue`s or code, not on main-yaml-only settings). It overrides the font config to a tiny Liberation Sans set (`target/test-classes/fonts`) for speed, so
 the full Noto bundle isn't loaded during tests. Tests assert PDF structure by inspecting raw bytes
 (header version, `pdfaid:part` in the XMP) rather than parsing — keep that style.
 
@@ -126,6 +155,10 @@ jaxb-api` + `org.glassfish.jaxb:jaxb-runtime`, since veraPDF declares JAXB as op
 profiles via `javax.xml.bind` / `com.sun.xml.bind.v2.ContextFactory`) are **test-scoped only** — no
 impact on the jar or image. The greenfield foundry entry point is
 `org.verapdf.gf.foundry.VeraGreenfieldFoundryProvider` (note the `gf.foundry` package).
+
+Network-related tests use `CountingHttpServer` (local, counts requests) — no test may reach the
+real network. `PdfTestSupport` rasterises pages (colour pixel counts), lists embedded fonts/images and
+wraps veraPDF. `TransparencyConformanceTest` pins the documented PDF/A-1 transparency limitation.
 
 ## CI / release
 
