@@ -47,6 +47,7 @@ curl -X POST "http://localhost:8080/api/v1/pdf?standard=PDF_A_1B" \\
         <tr><td><code>render.queueTimeout</code></td><td><code>10s</code></td><td><code>PDFBOX_RENDER_QUEUE_TIMEOUT</code>: wait for a slot, then <code>503</code> + <code>Retry-After</code>.</td></tr>
         <tr><td><code>upload.maxPartSize</code></td><td><code>20MB</code></td><td><code>PDFBOX_UPLOAD_MAX_PART_SIZE</code>: maximum size of one multipart part.</td></tr>
         <tr><td><code>upload.maxTotalSize</code></td><td><code>50MB</code></td><td><code>PDFBOX_UPLOAD_MAX_TOTAL_SIZE</code>: maximum size of a whole upload.</td></tr>
+        <tr><td><code>upload.memoryThreshold</code></td><td><code>""</code></td><td><code>PDFBOX_UPLOAD_MEMORY_THRESHOLD</code>: parts above it go to a temporary file under <code>/tmp</code>. Empty = never on disk.</td></tr>
         <tr><td><code>resources</code></td><td>requests/limits</td><td>CPU/memory; tune for your render volume.</td></tr>
         <tr><td><code>extraFonts.enabled</code></td><td><code>false</code></td><td>Mount a ConfigMap/PVC of <code>.ttf</code> at <code>/app/fonts</code>.</td></tr>
       </tbody>
@@ -100,6 +101,13 @@ ingress:
       <code>503</code> + <code>Retry-After</code>): size <code>resources.limits.memory</code> for
       <code>render.maxConcurrent</code> × <code>upload.maxTotalSize</code> on top of the JVM baseline,
       and scale out with replicas / the HPA.
+    </p>
+    <p>
+      When memory is tighter than disk, set <code>upload.memoryThreshold</code> (e.g. <code>1MB</code>):
+      larger parts are written under <code>/tmp</code> for the duration of the request. With a read-only
+      root filesystem, mount an <code>emptyDir</code> there through <code>extraVolumes</code> /
+      <code>extraVolumeMounts</code> — on disk, not <code>medium: Memory</code>, which would count against
+      the pod's memory and gain nothing.
     </p>
 
     <div class="callout">

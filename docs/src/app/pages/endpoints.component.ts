@@ -64,7 +64,9 @@ import { CodeComponent } from '../code/code.component';
       images, SVG charts, fonts. The HTML cites them by their <strong>plain file name</strong>
       (<code>&lt;img src="sigwx.svg"&gt;</code>, <code>&lt;link rel="stylesheet" href="page.css"&gt;</code>,
       <code>src: url(logo-font.ttf)</code> in a <code>&#64;font-face</code>); the file name of the part is
-      what counts. Attached files only live in memory, for that request. JavaScript is
+      what counts. Attached files only live for that request and are read when the renderer needs
+      them — in memory by default, never on disk unless <code>PDFBOX_UPLOAD_MEMORY_THRESHOLD</code> is
+      lowered. JavaScript is
       <strong>not</strong> executed — neither in the HTML nor in SVG.
     </p>
     <table>

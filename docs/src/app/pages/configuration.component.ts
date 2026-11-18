@@ -31,6 +31,7 @@ import { CodeComponent } from '../code/code.component';
         <tr><td><code>PDFBOX_RENDER_QUEUE_TIMEOUT</code></td><td><code>10s</code></td><td>Longest wait for a slot before a <code>503</code> + <code>Retry-After</code>.</td></tr>
         <tr><td><code>PDFBOX_UPLOAD_MAX_PART_SIZE</code></td><td><code>20MB</code></td><td>Maximum size of one multipart part (the HTML or one attached file).</td></tr>
         <tr><td><code>PDFBOX_UPLOAD_MAX_TOTAL_SIZE</code></td><td><code>50MB</code></td><td>Maximum size of a whole multipart request.</td></tr>
+        <tr><td><code>PDFBOX_UPLOAD_MEMORY_THRESHOLD</code></td><td><em>(unset)</em></td><td>Parts above this size go to a temporary file for the request instead of memory. Unset = max part size: <strong>nothing is written to disk</strong>.</td></tr>
         <tr><td><code>PDFBOX_BASE_PATH</code></td><td><em>(empty)</em></td><td>Base path prefixed to <strong>every</strong> route, set at startup. Must start with <code>/</code>.</td></tr>
         <tr><td><code>SPRING_PROFILES_ACTIVE</code></td><td><em>(none)</em></td><td>Set to <code>dev</code> to enable Swagger UI.</td></tr>
         <tr><td><code>JAVA_OPTS</code></td><td><em>(empty)</em></td><td>Extra JVM flags passed to the process.</td></tr>

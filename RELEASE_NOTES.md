@@ -18,7 +18,9 @@ the missing resources in the `X-Pdfbox-Unresolved-Resources` / `X-Pdfbox-Unresol
   JPEG, GIF, WebP, SVG, TrueType fonts — cited by their plain file name
   (`<img src="sigwx.svg">`, `url(logo-font.ttf)`). Names, duplicates and content types are validated
   (400), sizes are capped by `PDFBOX_UPLOAD_MAX_PART_SIZE` (20MB) / `PDFBOX_UPLOAD_MAX_TOTAL_SIZE`
-  (50MB) (413). Attachments stay in memory, for one request. A single `file` part works as before.
+  (50MB) (413). Attachments live for one request and are read only when rendered (never copied as a
+  whole); by default nothing is written to disk, and `PDFBOX_UPLOAD_MEMORY_THRESHOLD` can send larger
+  parts to a temporary file instead of memory. A single `file` part works as before.
 - **SVG**, inline or as a file, drawn as vector art (Apache Batik): scripts never run, Batik reads
   nothing by itself, references inside SVG follow the resource rules, SVG text uses the bundled fonts.
 - **Resource allow-list**: `PDFBOX_FETCH_ALLOWED_HOSTS` (exact `host[:port]`), `PDFBOX_FETCH_TIMEOUT`

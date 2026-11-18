@@ -129,7 +129,9 @@ The non-obvious mechanics, all learned the hard way (don't regress them):
   `AttachmentValidator`), `GET /standards`, and `GET /pdf-info` (self-describing PDF of a
   standard's constraints, served `inline`). They fall back to the configured default standard.
 - `MultipartConfig` builds the `MultipartConfigElement` from `UploadProperties` (threshold = max part
-  size: nothing spills to disk). `RenderLimitFilter` (a filter, so before the multipart body is read)
+  size by default: nothing spills to disk; `pdfbox.upload.memory-threshold` lowers it). An
+  `Attachment` holds no bytes, only `Content` (the part's `getInputStream`): never call
+  `MultipartFile.getBytes()` on attachments (whole copy) — `AttachmentStreamingTest` enforces it. `RenderLimitFilter` (a filter, so before the multipart body is read)
   admits at most `pdfbox.render.max-concurrent` renders, else 503 + `Retry-After`.
 - `GlobalExceptionHandler` maps `PdfGenerationException` and the binding/argument exceptions to a
   plain-text (UTF-8) **400**, upload limits to **413**, unresolved resources to **422**. `MethodArgumentTypeMismatchException` has its own handler that, for any enum

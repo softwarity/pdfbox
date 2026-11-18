@@ -45,6 +45,7 @@ curl -X POST "http://localhost:8080/api/v1/pdf?standard=PDF_A_1B" \
 | `render.queueTimeout` | `10s` | `PDFBOX_RENDER_QUEUE_TIMEOUT`: wait for a slot, then `503` + `Retry-After`. |
 | `upload.maxPartSize` | `20MB` | `PDFBOX_UPLOAD_MAX_PART_SIZE`: maximum size of one multipart part. |
 | `upload.maxTotalSize` | `50MB` | `PDFBOX_UPLOAD_MAX_TOTAL_SIZE`: maximum size of one upload. |
+| `upload.memoryThreshold` | `""` | `PDFBOX_UPLOAD_MEMORY_THRESHOLD`: parts above it go to a temporary file under `/tmp` (empty = never on disk). |
 | `resources` | requests/limits | CPU/memory tuning. |
 | `autoscaling.enabled` | `false` | Horizontal Pod Autoscaler. |
 | `extraFonts.enabled` | `false` | Mount a ConfigMap/PVC of `.ttf` files at `/app/fonts`. |
@@ -61,5 +62,6 @@ Ingress, extra fonts).
   normally attach their images, SVG, CSS and fonts to the request instead.
 - Memory: attachments are held in memory during a render, and at most `render.maxConcurrent` renders
   run at once per pod. Size `resources.limits.memory` for `render.maxConcurrent × upload.maxTotalSize`
-  plus the JVM baseline.
+  plus the JVM baseline — or set `upload.memoryThreshold` to move large parts to `/tmp` (an on-disk
+  `emptyDir` if the root filesystem is read-only).
 - The chart is intentionally minimal — fork/extend it for org-specific needs (NetworkPolicy, PDB, …).

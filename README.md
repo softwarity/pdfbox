@@ -90,7 +90,10 @@ curl -X POST "http://localhost:8080/api/v1/pdf?standard=PDF_A_2U" \
      -o briefing.pdf
 ```
 
-Attached files live in memory for that request only (never written to disk). A name with `/`, `\`,
+Attached files live for that request only. They are never copied as a whole: each one is read when
+the renderer needs it. By default they stay in memory and nothing is written to disk; set
+`PDFBOX_UPLOAD_MEMORY_THRESHOLD` to send larger parts to a temporary file (deleted at the end of the
+request) when RAM is tighter than disk. A name with `/`, `\`,
 `..` or a control character, a duplicate name, an unknown part or a file whose content does not match
 its type is a **400**; above `PDFBOX_UPLOAD_MAX_PART_SIZE` / `PDFBOX_UPLOAD_MAX_TOTAL_SIZE` it is a
 **413**. WebP is converted to PNG (PDF cannot carry WebP). A request with only `file` behaves exactly
@@ -254,6 +257,7 @@ Sensible defaults mean you normally configure nothing. If needed, override via e
 | `PDFBOX_FETCH_MAX_BYTES` | `10MB` | Maximum size of one remote resource. |
 | `PDFBOX_UPLOAD_MAX_PART_SIZE` | `20MB` | Maximum size of one multipart part (the HTML or one attached file). |
 | `PDFBOX_UPLOAD_MAX_TOTAL_SIZE` | `50MB` | Maximum size of a whole multipart request. |
+| `PDFBOX_UPLOAD_MEMORY_THRESHOLD` | _(unset = max part size)_ | Parts above this size go to a temporary file for the duration of the request instead of memory. Unset: nothing is ever written to disk. |
 | `PDFBOX_RENDER_MAX_CONCURRENT` | `0` (= CPUs) | Renders running at once; others wait for a slot. Bounds CPU and memory (≈ this × upload total). |
 | `PDFBOX_RENDER_QUEUE_TIMEOUT` | `10s` | Longest wait for a render slot before a `503` + `Retry-After`. |
 | `PDFBOX_BASE_PATH` | _(empty)_ | Base path prefixed to **every** route, set at startup. Must start with `/`. |
