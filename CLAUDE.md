@@ -30,7 +30,7 @@ Everything funnels through `PdfGenerationService.render(html, standard, attachme
 
 ```
 HTML ──HtmlNormalizer(jsoup, SvgSanitizer)──► W3C DOM ──openhtmltopdf + Batik──► PDF (PDFBox)
-     ──(PDF/A only) normalizeVersion()──► bytes
+     ──(PDF/A only) postProcessPdfA()──► bytes
           ▲ every resource load goes through RenderResources (one per render)
 ```
 
@@ -43,16 +43,16 @@ HTML ──HtmlNormalizer(jsoup, SvgSanitizer)──► W3C DOM ──openhtmlto
   source values always win. Then converts to the W3C DOM that openhtmltopdf consumes. JS never runs.
 - **`PdfGenerationService`** drives `PdfRendererBuilder`: fast mode, register fonts, and for PDF/A
   set conformance + embed the sRGB output intent (+ PDF/UA tagging for the "A" levels).
-- **`normalizeVersion()`** is a PDFBox post-pass that only runs for PDF/A. It re-saves with
-  `NO_COMPRESSION` to force a classic cross-reference table (object/xref streams are illegal in
-  PDF/A-1), strips stale xref-stream trailer keys, and **patches the `%PDF-1.x` header bytes
-  in place** because PDFBox refuses to downgrade the header line. The in-place patch relies on the
-  replacement string being the same length (1.4 ↔ 1.7) to keep xref byte offsets valid. Touch this
-  carefully and re-validate output with veraPDF (`verapdf --flavour 1b document.pdf`).
-- **`normalizeVersion()`** also clears `/Interpolate` on every image (forbidden by all PDF/A parts;
-  Batik paints SVG group `opacity` as an interpolated image). Note: since openhtmltopdf 1.1.114 the
-  engine already writes PDF/A-1 as `%PDF-1.4` with a classic xref table, so the PDF/A-1 part of this
-  pass is no longer strictly needed (kept on purpose); parts 2/3 still rely on it for the 1.7 header.
+- **`postProcessPdfA()`** is a PDFBox post-pass that only runs for PDF/A. It clears `/Interpolate`
+  on every image (forbidden by all PDF/A parts; Batik paints SVG group `opacity` as an interpolated
+  image), runs the PDF/A-1 transparency safety net, and re-saves with `NO_COMPRESSION` — required
+  because any re-save with compression would write object/xref streams, illegal in PDF/A-1.
+  Version: openhtmltopdf 1.1.114 already writes PDF/A-1 as `%PDF-1.4` with a classic xref table, so
+  part 1 needs no version work. Parts 2/3 come out as 1.6 and are raised to 1.7 — only when the
+  **header** version (`getDocument().getVersion()`, not `PDDocument.getVersion()`, which also reads
+  the catalog) differs: stale xref-stream trailer keys are dropped and the `%PDF-1.x` header bytes are
+  **patched in place**, because PDFBox does not rewrite the header line (same length keeps xref
+  offsets valid). Re-validate with veraPDF after touching this.
 
 ## Resources (package `resource`) — deny by default
 

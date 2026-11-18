@@ -117,7 +117,7 @@ public class PdfGenerationService {
             throw new UnresolvedResourcesException(unresolved);
         }
         try {
-            return new RenderResult(standard.isPdfA() ? normalizeVersion(pdf, standard.pdfVersion()) : pdf,
+            return new RenderResult(standard.isPdfA() ? postProcessPdfA(pdf, standard) : pdf,
                     unresolved);
         } catch (Exception e) {
             throw new PdfGenerationException(e.getMessage(), e);
@@ -183,26 +183,36 @@ public class PdfGenerationService {
     }
 
     /**
-     * Re-saves the document with the PDF version required by the target PDF/A part and without object
-     * streams, so the output uses a classic cross-reference table — object/xref streams are forbidden
-     * in PDF/A-1 and the byte-identical header keeps every validator happy.
+     * PDF/A post-pass: clears image interpolation, neutralises leftover transparency for PDF/A-1, and
+     * brings the header/catalog version to the one {@link PdfAStandard} declares.
+     *
+     * <p>The document is re-saved without compression: a compressed save would write object streams
+     * and a cross-reference stream, which PDF/A-1 forbids (and the classic table is fine for 2/3).
+     *
+     * <p>Version: openhtmltopdf 1.1.114 already writes PDF/A-1 as {@code %PDF-1.4} with a classic
+     * cross-reference table, so for part 1 there is nothing to change. Parts 2/3 come out as 1.6 and
+     * are raised to 1.7: the version is set, the trailer keys left from the source cross-reference
+     * stream are dropped so the rewritten classic trailer is clean, and the header line is patched in
+     * place — PDFBox does not rewrite it (same length, so xref byte offsets stay valid).
      */
-    private byte[] normalizeVersion(byte[] pdf, float version) throws Exception {
-        String v = String.valueOf(version); // "1.4" or "1.7"
+    private byte[] postProcessPdfA(byte[] pdf, PdfAStandard standard) throws Exception {
+        float target = standard.pdfVersion();
+        boolean raiseVersion;
         byte[] saved;
         try (PDDocument doc = Loader.loadPDF(pdf)) {
-            doc.getDocument().setVersion(version);
-            doc.getDocumentCatalog().getCOSObject().setName(COSName.VERSION, v);
-            // The source used a cross-reference stream; drop its dictionary keys so the rewritten
-            // classic-table trailer is clean (a hybrid/stream trailer is invalid in PDF/A-1).
-            var trailer = doc.getDocument().getTrailer();
-            for (COSName stale : new COSName[]{COSName.TYPE, COSName.W, COSName.INDEX,
-                    COSName.LENGTH, COSName.FILTER, COSName.DECODE_PARMS, COSName.PREV,
-                    COSName.getPDFName("XRefStm")}) {
-                trailer.removeItem(stale);
+            raiseVersion = doc.getDocument().getVersion() != target; // header version, not the catalog's
+            if (raiseVersion) {
+                doc.getDocument().setVersion(target);
+                doc.getDocumentCatalog().getCOSObject().setName(COSName.VERSION, String.valueOf(target));
+                var trailer = doc.getDocument().getTrailer();
+                for (COSName stale : new COSName[]{COSName.TYPE, COSName.W, COSName.INDEX,
+                        COSName.LENGTH, COSName.FILTER, COSName.DECODE_PARMS, COSName.PREV,
+                        COSName.getPDFName("XRefStm")}) {
+                    trailer.removeItem(stale);
+                }
             }
             clearImageInterpolation(doc);
-            if (version < 1.5f) {
+            if (standard.part() == 1) {
                 neutralizeTransparency(doc);
             }
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -210,9 +220,8 @@ public class PdfGenerationService {
                 saved = out.toByteArray();
             }
         }
-        // PDFBox refuses to downgrade the header line; patch it in place (same length keeps xref
-        // offsets valid) so PDF/A-1 reports the mandatory "%PDF-1.4".
-        if (saved.length >= 8 && saved[0] == '%' && saved[1] == 'P' && saved[2] == 'D'
+        String v = String.valueOf(target); // "1.7"
+        if (raiseVersion && saved.length >= 8 && saved[0] == '%' && saved[1] == 'P' && saved[2] == 'D'
                 && saved[3] == 'F' && saved[4] == '-') {
             saved[5] = (byte) v.charAt(0);
             saved[6] = (byte) v.charAt(1);
