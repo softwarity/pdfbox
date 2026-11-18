@@ -37,7 +37,8 @@ the missing resources in the `X-Pdfbox-Unresolved-Resources` / `X-Pdfbox-Unresol
   springdoc 3.2.0. The Docker image runs on a Temurin 25 JRE.
 - openhtmltopdf **1.1.114** (was 1.1.37; PDFBox 3.0.8 with the fix for CVE-2026-33929, PDF/UA structure
   fixes, CSS `opacity`/`rgba`/`box-shadow`, some layout refinements — documents may lay out slightly
-  differently), jsoup 1.24.1.
+  differently), jsoup 1.24.1. SVG is drawn by Apache Batik 1.20 (aligned above the 1.17 the engine
+  pins) with xmlgraphics-commons 2.12.
 - Error bodies are `text/plain;charset=UTF-8`.
 
 ### Fixed
