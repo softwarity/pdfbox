@@ -18,8 +18,12 @@ server:
     # the root). E.g. PDFBOX_BASE_PATH=/pdfbox exposes POST /pdfbox/api/v1/pdf, /pdfbox/swagger-ui...
     context-path: ${PDFBOX_BASE_PATH:}
   tomcat:
-    max-http-form-post-size: 50MB
-    max-swallow-size: 50MB
+    # Multipart limits themselves come from pdfbox.upload (see MultipartConfig). Swallowing up to the
+    # total limit lets an over-limit upload still get its 413 instead of a reset connection.
+    max-http-form-post-size: ${pdfbox.upload.max-total-size}
+    max-swallow-size: ${pdfbox.upload.max-total-size}
+    # Parts per multipart request (HTML + attached files + form fields). Tomcat's default is 50.
+    max-part-count: 256
 
 management:
   endpoints:
@@ -58,6 +62,33 @@ pdfbox:
   # Comma-separated directories scanned recursively at startup for embeddable .ttf / .otf fonts.
   fonts:
     directories: /app/fonts,/usr/share/fonts,fonts
+  # Admission control: renders running at once (CPU-bound; each holds its upload in memory).
+  render:
+    # PDFBOX_RENDER_MAX_CONCURRENT: 0 = number of available processors.
+    max-concurrent: 0
+    # PDFBOX_RENDER_QUEUE_TIMEOUT: wait for a free slot at most this long, then answer 503 + Retry-After.
+    queue-timeout: 10s
+  # Multipart uploads (POST /api/v1/pdf and /pdf/upload with attached files).
+  upload:
+    # PDFBOX_UPLOAD_MAX_PART_SIZE: maximum size of one part (the HTML or one attached file).
+    max-part-size: 20MB
+    # PDFBOX_UPLOAD_MAX_TOTAL_SIZE: maximum size of the whole request.
+    max-total-size: 50MB
+    # PDFBOX_UPLOAD_MEMORY_THRESHOLD: parts up to this size stay in memory; larger ones are written to
+    # a temporary file for the duration of the request. Unset = max-part-size: never written to disk.
+    # memory-threshold: 1MB
+  # Remote resources (http/https images, stylesheets, fonts, SVG). Resolution order for anything the
+  # HTML cites: an attached file by plain name, then a data: URI, then an http(s) URL whose host is
+  # listed below. Everything else (file:, jar:, classpath:, other relative paths, unlisted hosts) is
+  # refused, and an unresolved resource fails the render with a 422 unless ?onMissingResource=report.
+  fetch:
+    # PDFBOX_FETCH_ALLOWED_HOSTS: comma-separated exact host names, optional port
+    # (geoserver.example.svc,maps.example.org:8443). Empty = nothing is ever fetched (the default).
+    allowed-hosts: []
+    # PDFBOX_FETCH_TIMEOUT: overall time per resource (connection, redirects and body).
+    timeout: 10s
+    # PDFBOX_FETCH_MAX_BYTES: maximum size of one fetched resource.
+    max-bytes: 10MB
 
 logging:
   level:

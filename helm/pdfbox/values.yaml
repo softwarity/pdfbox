@@ -21,6 +21,39 @@ fullnameOverride: ""
 #     PDFBOX_BASE_PATH: /pdfbox
 env: {}
 
+# Remote resources (images, stylesheets, fonts, SVG cited by http(s) URL). Nothing is fetched unless
+# its host is listed here; everything else must be attached to the request or inlined as data: URIs.
+fetch:
+  # PDFBOX_FETCH_ALLOWED_HOSTS — exact host names, optional port. Empty = no network access at all.
+  # e.g. [geoserver.example.svc, "maps.example.org:8443"]
+  allowedHosts: []
+  # PDFBOX_FETCH_TIMEOUT — overall time per resource (connection, redirects and body).
+  timeout: 10s
+  # PDFBOX_FETCH_MAX_BYTES — maximum size of one fetched resource.
+  maxBytes: 10MB
+
+# Admission control: renders running at once per pod. Rendering is CPU-bound and each request holds
+# its upload in memory, so this bounds both: memory ~ maxConcurrent x upload.maxTotalSize + baseline.
+render:
+  # PDFBOX_RENDER_MAX_CONCURRENT — 0 = the CPUs the JVM sees (the container CPU limit).
+  maxConcurrent: 0
+  # PDFBOX_RENDER_QUEUE_TIMEOUT — wait at most this long for a slot, then 503 + Retry-After.
+  queueTimeout: 10s
+
+# Multipart uploads: the HTML plus attached files (CSS, images, SVG, TTF), held in memory only.
+upload:
+  # PDFBOX_UPLOAD_MAX_PART_SIZE — maximum size of one part (the HTML or one attached file).
+  maxPartSize: 20MB
+  # PDFBOX_UPLOAD_MAX_TOTAL_SIZE — maximum size of the whole request. Keep resources.limits.memory
+  # comfortably above (render.maxConcurrent x this value) + the JVM baseline.
+  maxTotalSize: 50MB
+  # PDFBOX_UPLOAD_MEMORY_THRESHOLD — parts above this size go to a temporary file (under /tmp) for
+  # the duration of the request instead of memory. Empty = never written to disk (the default).
+  # Lowering it trades RAM for a writable /tmp: with a read-only root filesystem, mount an emptyDir
+  # (on disk, not medium: Memory — that would count against the pod's memory) at /tmp via
+  # extraVolumes / extraVolumeMounts.
+  memoryThreshold: ""
+
 serviceAccount:
   create: true
   automount: true

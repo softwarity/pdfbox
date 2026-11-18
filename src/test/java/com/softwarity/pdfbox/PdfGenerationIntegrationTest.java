@@ -7,7 +7,7 @@ import com.softwarity.pdfbox.pdf.PdfGenerationService;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,13 +32,13 @@ class PdfGenerationIntegrationTest {
 
     @Test
     void rendersPlainPdf() {
-        byte[] pdf = service.render(HTML, PdfAStandard.NONE, null);
+        byte[] pdf = service.render(HTML, PdfAStandard.NONE);
         assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).startsWith("%PDF-");
     }
 
     @Test
     void rendersPdfA1bWithConformanceMetadata() {
-        byte[] pdf = service.render(HTML, PdfAStandard.PDF_A_1B, null);
+        byte[] pdf = service.render(HTML, PdfAStandard.PDF_A_1B);
         String head = new String(pdf, 0, 8, StandardCharsets.ISO_8859_1);
         String body = new String(pdf, StandardCharsets.ISO_8859_1);
         // PDF/A-1 mandates header version 1.4.
@@ -49,14 +49,14 @@ class PdfGenerationIntegrationTest {
 
     @Test
     void rendersPdfA2bWithVersion17() {
-        byte[] pdf = service.render(HTML, PdfAStandard.PDF_A_2B, null);
+        byte[] pdf = service.render(HTML, PdfAStandard.PDF_A_2B);
         String head = new String(pdf, 0, 8, StandardCharsets.ISO_8859_1);
         assertThat(head).startsWith("%PDF-1.7");
     }
 
     @Test
     void rendersMalformedHtml() {
-        byte[] pdf = service.render("<h1>unclosed <b>bold", PdfAStandard.PDF_A_2B, null);
+        byte[] pdf = service.render("<h1>unclosed <b>bold", PdfAStandard.PDF_A_2B);
         assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).startsWith("%PDF-");
     }
 

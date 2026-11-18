@@ -24,6 +24,14 @@ import { CodeComponent } from '../code/code.component';
         <tr><td><code>PDFBOX_DEFAULT_FONT_FAMILY</code></td><td>Noto stack</td><td>CSS font stack applied when the HTML sets none.</td></tr>
         <tr><td><code>PDFBOX_DEFAULT_LANG</code></td><td><code>en</code></td><td><code>&lt;html lang&gt;</code> injected when the source omits it (needed by the “A” levels).</td></tr>
         <tr><td><code>PDFBOX_DEFAULT_TITLE</code></td><td><code>Document</code></td><td><code>&lt;title&gt;</code> injected when the source has none and no usable heading.</td></tr>
+        <tr><td><code>PDFBOX_FETCH_ALLOWED_HOSTS</code></td><td><em>(empty)</em></td><td>Exact host names (optional <code>:port</code>) remote resources may be fetched from. Empty = <strong>nothing is fetched</strong>.</td></tr>
+        <tr><td><code>PDFBOX_FETCH_TIMEOUT</code></td><td><code>10s</code></td><td>Overall time allowed per remote resource (connection, redirects, body).</td></tr>
+        <tr><td><code>PDFBOX_FETCH_MAX_BYTES</code></td><td><code>10MB</code></td><td>Maximum size of one remote resource.</td></tr>
+        <tr><td><code>PDFBOX_RENDER_MAX_CONCURRENT</code></td><td><code>0</code> (= CPUs)</td><td>Renders running at once; others wait for a slot.</td></tr>
+        <tr><td><code>PDFBOX_RENDER_QUEUE_TIMEOUT</code></td><td><code>10s</code></td><td>Longest wait for a slot before a <code>503</code> + <code>Retry-After</code>.</td></tr>
+        <tr><td><code>PDFBOX_UPLOAD_MAX_PART_SIZE</code></td><td><code>20MB</code></td><td>Maximum size of one multipart part (the HTML or one attached file).</td></tr>
+        <tr><td><code>PDFBOX_UPLOAD_MAX_TOTAL_SIZE</code></td><td><code>50MB</code></td><td>Maximum size of a whole multipart request.</td></tr>
+        <tr><td><code>PDFBOX_UPLOAD_MEMORY_THRESHOLD</code></td><td><em>(unset)</em></td><td>Parts above this size go to a temporary file for the request instead of memory. Unset = max part size: <strong>nothing is written to disk</strong>.</td></tr>
         <tr><td><code>PDFBOX_BASE_PATH</code></td><td><em>(empty)</em></td><td>Base path prefixed to <strong>every</strong> route, set at startup. Must start with <code>/</code>.</td></tr>
         <tr><td><code>SPRING_PROFILES_ACTIVE</code></td><td><em>(none)</em></td><td>Set to <code>dev</code> to enable Swagger UI.</td></tr>
         <tr><td><code>JAVA_OPTS</code></td><td><em>(empty)</em></td><td>Extra JVM flags passed to the process.</td></tr>
@@ -37,6 +45,22 @@ import { CodeComponent } from '../code/code.component';
       win. The injected <code>&lt;meta name="subject"&gt;</code> maps to the PDF <em>Subject</em> — see
       <a routerLink="/standards">PDF/A standards</a>.
     </p>
+
+    <h3>Remote resources (deny by default)</h3>
+    <p>
+      pdfbox resolves what a document cites from, in order: a file attached to the request, a
+      <code>data:</code> URI, then an <code>http(s)</code> URL <strong>only</strong> if its host is in
+      <code>PDFBOX_FETCH_ALLOWED_HOSTS</code>. <code>file:</code>, <code>jar:</code>,
+      <code>classpath:</code> and unlisted hosts are always refused; an unresolved resource fails the
+      render with a 422 (see <a routerLink="/endpoints">API &amp; endpoints</a>). Entries are exact
+      names, no wildcard; without a port only the scheme's default port (80/443) is allowed. Every
+      redirect hop is checked again.
+    </p>
+    <app-code lang="bash">docker run --rm -p 8080:8080 \\
+  -e PDFBOX_FETCH_ALLOWED_HOSTS=geoserver.example.svc,tiles.example.org:8443 \\
+  -e PDFBOX_FETCH_TIMEOUT=5s \\
+  -e PDFBOX_FETCH_MAX_BYTES=20MB \\
+  softwarity/pdfbox:latest</app-code>
 
     <h3>Base path (set at launch)</h3>
     <p>

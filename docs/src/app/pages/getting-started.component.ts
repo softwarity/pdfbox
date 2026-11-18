@@ -122,14 +122,14 @@ import { CodeComponent } from '../code/code.component';
     </p>
 
     <h3>3. Run from sources (optional)</h3>
-    <p>Requires <strong>JDK 21</strong>. A broad Noto set is bundled in the jar, so multi-script output works offline too:</p>
+    <p>Requires <strong>JDK 25</strong>. A broad Noto set is bundled in the jar, so multi-script output works offline too:</p>
     <app-code lang="bash">mvn spring-boot:run                          # run from sources at :8080
 # or build the fat jar and run it
 mvn package &amp;&amp; java -jar target/pdfbox.jar</app-code>
 
     <h3>Compatibility</h3>
     <ul>
-      <li>Runtime: <strong>JDK 21</strong> (the Docker image bundles a Temurin 21 JRE).</li>
+      <li>Runtime: <strong>JDK 25</strong> (the Docker image bundles a Temurin 25 JRE).</li>
       <li>Architectures: <code>linux/amd64</code> and <code>linux/arm64</code>.</li>
       <li>No database, no broker, no external network access required at runtime.</li>
     </ul>

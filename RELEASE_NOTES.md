@@ -2,6 +2,57 @@
 
 ## NEXT RELEASE
 
+### ⚠️ Breaking: remote resources are no longer fetched by default
+Until now any `http(s)://` URL in the HTML (images, stylesheets, `@font-face`, SVG) was fetched — and
+`file:`, `jar:` and `classpath:` URLs were read too. **Nothing is fetched anymore unless its host is
+listed in `PDFBOX_FETCH_ALLOWED_HOSTS`** (empty by default), and `file:` / `jar:` / `classpath:` are
+always refused. A document citing a resource that cannot be resolved now **fails with a 422** listing
+each one and why (`not-allowed`, `not-found`, `timeout`, `too-large`, `fetch-error`). If you relied on
+remote fetching: attach the files to the request (see below), inline them as `data:` URIs, or list the
+hosts in `PDFBOX_FETCH_ALLOWED_HOSTS`; `?onMissingResource=report` restores "render anyway" and lists
+the missing resources in the `X-Pdfbox-Unresolved-Resources` / `X-Pdfbox-Unresolved-Count` headers.
+
+### Added
+- **Attached resources (multipart).** `POST /api/v1/pdf` now also accepts `multipart/form-data`, like
+  `POST /api/v1/pdf/upload`: the HTML as `file`, plus any number of `resources` parts — CSS, PNG,
+  JPEG, GIF, WebP, SVG, TrueType fonts — cited by their plain file name
+  (`<img src="sigwx.svg">`, `url(logo-font.ttf)`). Names, duplicates and content types are validated
+  (400), sizes are capped by `PDFBOX_UPLOAD_MAX_PART_SIZE` (20MB) / `PDFBOX_UPLOAD_MAX_TOTAL_SIZE`
+  (50MB) (413). Attachments live for one request and are read only when rendered (never copied as a
+  whole); by default nothing is written to disk, and `PDFBOX_UPLOAD_MEMORY_THRESHOLD` can send larger
+  parts to a temporary file instead of memory. A single `file` part works as before.
+- **SVG**, inline or as a file, drawn as vector art (Apache Batik): scripts never run, Batik reads
+  nothing by itself, references inside SVG follow the resource rules, SVG text uses the bundled fonts.
+- **Resource allow-list**: `PDFBOX_FETCH_ALLOWED_HOSTS` (exact `host[:port]`), `PDFBOX_FETCH_TIMEOUT`
+  (10s), `PDFBOX_FETCH_MAX_BYTES` (10MB). Redirects are re-checked hop by hop; a resource cited several
+  times is fetched once.
+- **Bounded rendering**: at most `PDFBOX_RENDER_MAX_CONCURRENT` renders at once (default: CPU count);
+  beyond `PDFBOX_RENDER_QUEUE_TIMEOUT` (10s) of waiting, `503` with `Retry-After`. Memory use is now
+  bounded by this × the upload limit.
+- WebP images are converted to PNG (PDF cannot carry WebP).
+- Helm chart: `fetch.*`, `upload.*` and `render.*` values.
+
+### Changed
+- Java **25** (was 21), Spring Boot **4.1.2** (was 3.5 — out of OSS support since 2026-06-30),
+  springdoc 3.2.0. The Docker image runs on a Temurin 25 JRE.
+- openhtmltopdf **1.1.114** (was 1.1.37; PDFBox 3.0.8 with the fix for CVE-2026-33929, PDF/UA structure
+  fixes, CSS `opacity`/`rgba`/`box-shadow`, some layout refinements — documents may lay out slightly
+  differently), jsoup 1.24.1.
+- Error bodies are `text/plain;charset=UTF-8`.
+
+### Fixed
+- PDF/A output no longer carries `/Interpolate true` on images (forbidden in every PDF/A part).
+
+### Known limitation
+- **PDF/A-1 and transparency**: SVG `opacity`, `fill-opacity`, `stop-opacity` and PNG images with an
+  alpha channel are rendered faithfully, so the result is not PDF/A-1 conformant (PDF/A-1 forbids
+  transparency). PDF/A-2 and PDF/A-3 are conformant.
+
+### Tests
+- No test touches the network: a local server counts requests. New suites cover the resource policy,
+  multipart, SVG, transparency × every standard, concurrency limits, and a reference multi-script
+  document with SVG, PNG and WebP validated with veraPDF in all 8 standards. veraPDF 1.30.4.
+
 ---
 
 ## 1.1.0

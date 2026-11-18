@@ -40,6 +40,14 @@ curl -X POST "http://localhost:8080/api/v1/pdf?standard=PDF_A_1B" \\
         <tr><td><code>service.port</code></td><td><code>8080</code></td><td>Service port (maps to container 8080).</td></tr>
         <tr><td><code>ingress.enabled</code></td><td><code>false</code></td><td>Set <code>true</code> to expose via an Ingress.</td></tr>
         <tr><td><code>env</code></td><td><code>{{ '{}' }}</code></td><td>Extra environment variables (the <code>PDFBOX_*</code> knobs).</td></tr>
+        <tr><td><code>fetch.allowedHosts</code></td><td><code>[]</code></td><td><code>PDFBOX_FETCH_ALLOWED_HOSTS</code>: hosts remote resources may be fetched from. Empty = no network access.</td></tr>
+        <tr><td><code>fetch.timeout</code></td><td><code>10s</code></td><td><code>PDFBOX_FETCH_TIMEOUT</code>: overall time per remote resource.</td></tr>
+        <tr><td><code>fetch.maxBytes</code></td><td><code>10MB</code></td><td><code>PDFBOX_FETCH_MAX_BYTES</code>: maximum size of one remote resource.</td></tr>
+        <tr><td><code>render.maxConcurrent</code></td><td><code>0</code></td><td><code>PDFBOX_RENDER_MAX_CONCURRENT</code>: renders at once per pod; 0 = the CPUs the JVM sees (the CPU limit).</td></tr>
+        <tr><td><code>render.queueTimeout</code></td><td><code>10s</code></td><td><code>PDFBOX_RENDER_QUEUE_TIMEOUT</code>: wait for a slot, then <code>503</code> + <code>Retry-After</code>.</td></tr>
+        <tr><td><code>upload.maxPartSize</code></td><td><code>20MB</code></td><td><code>PDFBOX_UPLOAD_MAX_PART_SIZE</code>: maximum size of one multipart part.</td></tr>
+        <tr><td><code>upload.maxTotalSize</code></td><td><code>50MB</code></td><td><code>PDFBOX_UPLOAD_MAX_TOTAL_SIZE</code>: maximum size of a whole upload.</td></tr>
+        <tr><td><code>upload.memoryThreshold</code></td><td><code>""</code></td><td><code>PDFBOX_UPLOAD_MEMORY_THRESHOLD</code>: parts above it go to a temporary file under <code>/tmp</code>. Empty = never on disk.</td></tr>
         <tr><td><code>resources</code></td><td>requests/limits</td><td>CPU/memory; tune for your render volume.</td></tr>
         <tr><td><code>extraFonts.enabled</code></td><td><code>false</code></td><td>Mount a ConfigMap/PVC of <code>.ttf</code> at <code>/app/fonts</code>.</td></tr>
       </tbody>
@@ -74,6 +82,33 @@ ingress:
       paths:
         - path: /
           pathType: Prefix</app-code>
+
+    <h3>Letting pdfbox fetch from in-cluster services</h3>
+    <p>
+      By default pdfbox never touches the network: clients attach their images and stylesheets to the
+      request. To let it fetch from known services instead (a map server, an asset store), list their
+      exact hosts — anything else stays refused, redirects included:
+    </p>
+    <app-code lang="yaml">fetch:
+  allowedHosts:
+    - geoserver.weather.svc.cluster.local
+    - "tiles.example.org:8443"
+  timeout: 5s
+  maxBytes: 20MB</app-code>
+    <p>
+      Attached files are held in memory for the duration of a request, and at most
+      <code>render.maxConcurrent</code> requests are admitted at once per pod (others wait, then get a
+      <code>503</code> + <code>Retry-After</code>): size <code>resources.limits.memory</code> for
+      <code>render.maxConcurrent</code> × <code>upload.maxTotalSize</code> on top of the JVM baseline,
+      and scale out with replicas / the HPA.
+    </p>
+    <p>
+      When memory is tighter than disk, set <code>upload.memoryThreshold</code> (e.g. <code>1MB</code>):
+      larger parts are written under <code>/tmp</code> for the duration of the request. With a read-only
+      root filesystem, mount an <code>emptyDir</code> there through <code>extraVolumes</code> /
+      <code>extraVolumeMounts</code> — on disk, not <code>medium: Memory</code>, which would count against
+      the pod's memory and gain nothing.
+    </p>
 
     <div class="callout">
       The chart sets a <strong>readiness</strong> and <strong>liveness</strong> probe on

@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.14</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
 
@@ -18,18 +18,19 @@
     <description>HTML to PDF/A generation service powered by OpenPDF</description>
 
     <properties>
-        <java.version>21</java.version>
-        <openhtmltopdf.version>1.1.37</openhtmltopdf.version>
-        <jsoup.version>1.21.2</jsoup.version>
-        <springdoc.version>2.8.9</springdoc.version>
-        <verapdf.version>1.30.2</verapdf.version>
+        <java.version>25</java.version>
+        <twelvemonkeys.version>3.15.3</twelvemonkeys.version>
+        <openhtmltopdf.version>1.1.114</openhtmltopdf.version>
+        <jsoup.version>1.24.1</jsoup.version>
+        <springdoc.version>3.2.0</springdoc.version>
+        <verapdf.version>1.30.4</verapdf.version>
         <jaxb.version>2.3.1</jaxb.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -41,6 +42,29 @@
             <groupId>io.github.openhtmltopdf</groupId>
             <artifactId>openhtmltopdf-pdfbox</artifactId>
             <version>${openhtmltopdf.version}</version>
+        </dependency>
+        <!-- SVG drawing (Apache Batik), same version as the engine. Configured with scripts and
+             external resource loading disabled: Batik only ever reads data: URIs. -->
+        <dependency>
+            <groupId>io.github.openhtmltopdf</groupId>
+            <artifactId>openhtmltopdf-svg-support</artifactId>
+            <version>${openhtmltopdf.version}</version>
+            <exclusions>
+                <!-- Old copies of JDK java.xml packages (org.w3c.dom…); the JDK's own win anyway.
+                     xml-apis-ext (the SVG DOM interfaces Batik needs) stays. -->
+                <exclusion>
+                    <groupId>xml-apis</groupId>
+                    <artifactId>xml-apis</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- WebP decoding for ImageIO (BSD-3): PDFBox cannot embed WebP, so WebP images are decoded
+             here and re-encoded as PNG before reaching the PDF. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>${twelvemonkeys.version}</version>
         </dependency>
 
         <!-- Tolerant HTML parsing + conversion to the W3C DOM openhtmltopdf consumes -->
@@ -59,7 +83,7 @@
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
 

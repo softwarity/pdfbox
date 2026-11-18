@@ -9,6 +9,11 @@ on:
         default: patch
         options: [patch, minor, major]
 
+# Two releases at once would compute the same next version from the same latest tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     if: github.ref == 'refs/heads/main'
@@ -22,8 +27,24 @@ jobs:
           # Persist the PAT so release-flow's tag push carries it (→ triggers docker-release.yml).
           token: ${{ secrets.PAT_TOKEN }}
 
+      # Build and test BEFORE anything is tagged: a red main must never produce a tag, a GitHub
+      # Release and no image (docker-release.yml only runs after the tag is pushed).
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Build and test
+        run: mvn -B -ntp verify
+
       - name: Release
         uses: softwarity/release-flow@v1
         with:
           bump: ${{ inputs.bump }}
-          # language auto-detected: pom.xml + Dockerfile → maven_docker (pom synced via mvn-in-Docker)
+          # Explicit rather than auto-detected: pom.xml version synced from the tag with
+          # `mvn versions:set` run in a Maven container (only <version>, never parent/deps).
+          language: maven_docker
+          maven-image: maven:3-eclipse-temurin-25
+          # The chart lives in helm/pdfbox, which auto-detection (exactly helm/Chart.yaml) misses:
+          # sync its version and appVersion so image.tag "" deploys the released image.
+          helm-chart: helm/pdfbox
