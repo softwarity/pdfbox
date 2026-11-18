@@ -58,6 +58,7 @@ public class HtmlNormalizer {
         // part of their parent's subtree).
         for (Element svg : doc.select("svg")) {
             if (svg.parents().stream().noneMatch(p -> p.normalName().equals("svg"))) {
+                ensureSvgAlt(svg);
                 svgSanitizer.sanitize(svg, svgInliner, flattenTransparency);
             }
         }
@@ -75,6 +76,25 @@ public class HtmlNormalizer {
                 .text("html{font-family:" + defaultFontFamily + ";}");
 
         return w3cDom.fromJsoup(doc);
+    }
+
+    /**
+     * Tagged output turns an inline {@code <svg>} into a {@code Figure} whose alternate text openhtmltopdf
+     * reads from an {@code alt} attribute only — which SVG does not have. Its accessible name is carried
+     * by {@code aria-label} or a {@code <title>} child: copy it to {@code alt} (PDF/UA §7.3 requires it).
+     */
+    private static void ensureSvgAlt(Element svg) {
+        if (!svg.attr("alt").isBlank()) {
+            return;
+        }
+        String name = svg.attr("aria-label").trim();
+        if (name.isEmpty()) {
+            Element title = svg.children().stream().filter(c -> c.normalName().equals("title")).findFirst().orElse(null);
+            name = title == null ? "" : title.text().trim();
+        }
+        if (!name.isEmpty()) {
+            svg.attr("alt", name);
+        }
     }
 
     /** Sets a document language when the source omits one ({@code <html lang>} is required by PDF/UA). */

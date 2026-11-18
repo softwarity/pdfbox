@@ -29,7 +29,7 @@ class PdfStandardsIntegrationTest {
     private static final String HTML = "<h1>Title</h1><p>Tiếng Việt</p>";
 
     @ParameterizedTest
-    @EnumSource(value = PdfAStandard.class, names = "NONE", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(value = PdfAStandard.class, names = {"NONE", "PDF_UA_1"}, mode = EnumSource.Mode.EXCLUDE)
     void everyPdfAStandardCarriesTheRightVersionAndConformance(PdfAStandard standard) {
         byte[] pdf = service.render(HTML, standard);
         String head = new String(pdf, 0, 8, StandardCharsets.ISO_8859_1);
@@ -49,13 +49,22 @@ class PdfStandardsIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = PdfAStandard.class, names = {"PDF_A_1A", "PDF_A_2A", "PDF_A_3A"})
+    @EnumSource(value = PdfAStandard.class, names = {"PDF_A_1A", "PDF_A_2A", "PDF_A_3A", "PDF_UA_1"})
     void accessibleLevelsEmitTaggedStructure(PdfAStandard standard) {
         byte[] pdf = service.render(HTML, standard);
         String body = new String(pdf, StandardCharsets.ISO_8859_1);
         // Tagged / PDF-UA output carries a structure tree and a MarkInfo dictionary.
         assertThat(body).contains("StructTreeRoot");
         assertThat(body).contains("MarkInfo");
+    }
+
+    @Test
+    void pdfUa1IsAccessiblePdf17WithoutPdfAIdentification() {
+        byte[] pdf = service.render(HTML, PdfAStandard.PDF_UA_1);
+        String body = new String(pdf, StandardCharsets.ISO_8859_1);
+        assertThat(new String(pdf, 0, 8, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-1.7");
+        assertThat(Pattern.compile("pdfuaid:part\\D{0,3}1").matcher(body).find()).as("pdfuaid:part = 1").isTrue();
+        assertThat(body).doesNotContain("pdfaid:part");
     }
 
     @Test

@@ -72,7 +72,8 @@ public class PdfGenerationService {
         // PDF/A-1 forbids transparency: flatten it over white at the source (images, SVG opacity);
         // the post-pass then neutralises whatever is left. Parts 2/3 keep real transparency.
         boolean flatten = standard.part() == 1;
-        RenderResources resources = new RenderResources(attachments, fetcher, svgSanitizer, flatten);
+        RenderResources resources = new RenderResources(attachments, fetcher, svgSanitizer, flatten,
+                embedRefusal(standard));
         org.w3c.dom.Document doc = htmlNormalizer.toW3c(html, resources.svgInliner(null), flatten);
 
         PdfRendererBuilder builder = new PdfRendererBuilder();
@@ -90,6 +91,11 @@ public class PdfGenerationService {
         // factories replace openhtmltopdf's defaults wholesale (no URL.openStream fallback for the
         // schemes it serves), and the access controller refuses every other scheme before any load.
         builder.useUriResolver(resources);
+        // openhtmltopdf's default "before resolving" controller silently refuses every file embed
+        // (<a href download>) before our policy sees it, so nothing would be reported: replace it with
+        // a pass-through and let RenderResources#allow decide — and record — everything.
+        builder.useExternalResourceAccessControl((uri, type) -> true,
+                ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
         builder.useExternalResourceAccessControl(resources::allow,
                 ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
         builder.useProtocolsStreamImplementation(resources, RenderResources.SCHEMES);
@@ -97,9 +103,9 @@ public class PdfGenerationService {
         if (standard.isPdfA()) {
             builder.usePdfAConformance(standard.conformance());
             builder.useColorProfile(colorProfiles.srgb());
-            if (standard.isAccessible()) {
-                builder.usePdfUaAccessbility(true);
-            }
+        }
+        if (standard.isAccessible()) {
+            builder.usePdfUaAccessibility(true);
         }
 
         builder.withW3cDocument(doc, "");
@@ -118,11 +124,23 @@ public class PdfGenerationService {
             throw new UnresolvedResourcesException(unresolved);
         }
         try {
-            return new RenderResult(standard.isPdfA() ? postProcessPdfA(pdf, standard) : pdf,
+            return new RenderResult(standard.isPdfA() || standard.isPdfUa() ? postProcess(pdf, standard) : pdf,
                     unresolved);
+        } catch (PdfGenerationException e) {
+            throw e;
         } catch (Exception e) {
             throw new PdfGenerationException(e.getMessage(), e);
         }
+    }
+
+    /** Why {@code standard} cannot carry embedded files, or {@code null} when it can. */
+    static String embedRefusal(PdfAStandard standard) {
+        if (standard.allowsEmbeddedFiles()) {
+            return null;
+        }
+        return (standard.part() == 1 ? "PDF/A-1 forbids embedded files"
+                : "PDF/A-2 only allows embedding PDF/A documents")
+                + ": use PDF_A_3A, PDF_A_3B or PDF_A_3U (or NONE / PDF_UA_1) to embed files";
     }
 
     /**
@@ -196,7 +214,7 @@ public class PdfGenerationService {
      * stream are dropped so the rewritten classic trailer is clean, and the header line is patched in
      * place — PDFBox does not rewrite it (same length, so xref byte offsets stay valid).
      */
-    private byte[] postProcessPdfA(byte[] pdf, PdfAStandard standard) throws Exception {
+    private byte[] postProcess(byte[] pdf, PdfAStandard standard) throws Exception {
         float target = standard.pdfVersion();
         boolean raiseVersion;
         byte[] saved;
@@ -216,6 +234,7 @@ public class PdfGenerationService {
             if (standard.part() == 1) {
                 neutralizeTransparency(doc);
             }
+            EmbeddedFiles.register(doc, standard);
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 doc.save(out, CompressParameters.NO_COMPRESSION);
                 saved = out.toByteArray();

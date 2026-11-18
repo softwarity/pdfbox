@@ -92,7 +92,8 @@ mvn package && java -jar target/pdfbox.jar
 | `GET /` | Browser test page. |
 
 Supported `standard` values: `NONE`, `PDF_A_1A`, `PDF_A_1B`, `PDF_A_2A`, `PDF_A_2B`, `PDF_A_2U`,
-`PDF_A_3A`, `PDF_A_3B`, `PDF_A_3U`.
+`PDF_A_3A`, `PDF_A_3B`, `PDF_A_3U`, and `PDF_UA_1` (accessible PDF/UA-1, without the PDF/A archiving
+constraints).
 
 ```bash
 # Upload an HTML file (no JavaScript — it is not executed) and get a PDF/A-2b back:
@@ -105,8 +106,10 @@ curl -X POST "http://localhost:8080/api/v1/pdf/upload" \
 ### HTML with attached files (multipart)
 
 Send the HTML as the `file` part and every file it cites as a `resources` part — stylesheets
-(`.css`), images (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`, `.svg`) and TrueType fonts (`.ttf`). The
-HTML cites them by their **plain file name**; the part's file name is what counts:
+(`.css`), images (`.png`, `.jpg`/`.jpeg`, `.gif`, `.webp`, `.svg`) and TrueType fonts (`.ttf`), plus
+the files to embed in the PDF (`.xml`, `.json`, `.csv`, `.txt`, `.pdf` — see
+[Embedded files](#embedded-files-and-factur-x-invoices)). The HTML cites them by their **plain file
+name**; the part's file name is what counts:
 
 ```html
 <link rel="stylesheet" href="page.css">
@@ -132,6 +135,44 @@ request) when RAM is tighter than disk. A name with `/`, `\`,
 its type is a **400**; above `PDFBOX_UPLOAD_MAX_PART_SIZE` / `PDFBOX_UPLOAD_MAX_TOTAL_SIZE` it is a
 **413**. WebP is converted to PNG (PDF cannot carry WebP). A request with only `file` behaves exactly
 as before.
+
+### Embedded files and Factur-X invoices
+
+A link with a `download` attribute **embeds** the file it points to in the PDF (an attached file or a
+`data:` URI), shown as a paperclip annotation where the link is:
+
+```html
+<a href="factur-x.xml" download="factur-x.xml" title="Structured invoice">Invoice data (XML)</a>
+```
+
+| Attribute | Becomes |
+|---|---|
+| `download` | the embedded file name |
+| `title` | its description |
+| `relationship` | its PDF/A-3 relationship: `Source`, `Data`, `Alternative`, `Supplement` or `Unspecified` (the default) |
+| `data-content-type` | its MIME type (default: from the extension — `.xml` → `text/xml`, `.csv` → `text/csv`…) |
+
+Embedding is allowed in **PDF/A-3** (`PDF_A_3A/3B/3U`), `PDF_UA_1` and `NONE`. **PDF/A-1** forbids
+embedded files and **PDF/A-2** only allows PDF/A documents, so there the link is refused like any other
+unresolvable resource: a **422**, or the `X-Pdfbox-Unresolved-*` headers with
+`onMissingResource=report`. Every embedded file is associated with the document (catalog `/AF`) and
+listed in the `EmbeddedFiles` name tree, where viewers and invoice tools look for it.
+
+**Factur-X / ZUGFeRD / XRechnung.** In PDF/A-3, an embedded file named `factur-x.xml` (or
+`xrechnung.xml`) is a hybrid invoice: the service reads its profile from
+`GuidelineSpecifiedDocumentContextParameter/ID` (MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED,
+XRECHNUNG) and declares it in the XMP metadata (`fx:DocumentType`, `fx:DocumentFileName`,
+`fx:Version`, `fx:ConformanceLevel`, with the PDF/A extension schema). The relationship defaults to
+`Data` for MINIMUM / BASIC WL and `Alternative` otherwise; set `relationship` to override it. A
+`factur-x.xml` without a known profile is a **400**. The XML itself is embedded as is — validate it
+against the Factur-X schematron on your side.
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/pdf?standard=PDF_A_3B" \
+     -F "file=@invoice.html;type=text/html" \
+     -F "resources=@factur-x.xml" \
+     -o invoice.pdf
+```
 
 ### Resources: resolved, or refused — never silently dropped
 
@@ -276,6 +317,10 @@ freeze it to a static instance first (the image does this for the Noto CJK varia
   the source omits them (see `PDFBOX_DEFAULT_LANG` / `PDFBOX_DEFAULT_TITLE`), but for genuinely
   accessible output you should supply accurate ones — generic defaults satisfy the validator, not a
   screen-reader user.
+- **`PDF_UA_1`** produces accessible, tagged PDF 1.7 identified as PDF/UA-1 (ISO 14289-1), without
+  the PDF/A archiving constraints — validated against veraPDF's PDF/UA-1 profile. The same safety net
+  applies, and an inline `<svg>` gets its alternate text from `aria-label` or its `<title>`. For
+  accessible *and* archival output, use an `A` level (`PDF_A_1A`, `PDF_A_2A`, `PDF_A_3A`).
 - **Transparency and PDF/A-1.** PDF/A-1 forbids transparency, so for part 1 it is **flattened over
   white**: images with an alpha channel (PNG, GIF, WebP — attached, fetched, `data:` or inside SVG)
   are composited on white, and SVG `opacity` / `fill-opacity` / `stroke-opacity` / `stop-opacity` are
@@ -286,7 +331,7 @@ freeze it to a static instance first (the image does this for the Noto CJK varia
   transparency.
 - Always validate critical output with [veraPDF](https://verapdf.org/):
   ```bash
-  verapdf --flavour 1b document.pdf
+  verapdf --flavour 1b document.pdf   # or 3b, ua1…
   ```
 
 ## Configuration

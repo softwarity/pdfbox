@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,7 +41,9 @@ import com.softwarity.pdfbox.resource.UnresolvedResource.Reason;
  * </ol>
  *
  * Everything else is refused: {@code file:}, {@code jar:}, {@code classpath:}, any other scheme,
- * relative paths that do not name an attached file, and unlisted hosts. Nothing is ever dropped
+ * relative paths that do not name an attached file, and unlisted hosts. Files embedded in the PDF
+ * ({@code <a href download>}) follow the same resolution, unless the standard forbids embedded files
+ * altogether, and are embedded byte for byte (no SVG sanitising, no flattening). Nothing is ever dropped
  * silently: each refusal or failure is recorded with its reason ({@link #unresolved()}), and the
  * caller decides whether that fails the render. Bundled fonts never come through here.
  *
@@ -67,6 +70,8 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
     private final ResourceFetcher fetcher;
     private final SvgSanitizer svgSanitizer;
     private final boolean flattenTransparency;
+    private final String embedRefusal;
+    private final Set<String> embeds = new HashSet<>();
     private final Map<String, Loaded> cache = new HashMap<>();
     private final Map<String, UnresolvedResource> unresolved = new LinkedHashMap<>();
 
@@ -80,10 +85,22 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
      */
     public RenderResources(Attachments attachments, ResourceFetcher fetcher, SvgSanitizer svgSanitizer,
                            boolean flattenTransparency) {
+        this(attachments, fetcher, svgSanitizer, flattenTransparency, null);
+    }
+
+    /**
+     * @param flattenTransparency PDF/A-1: raster images are composited over white (no alpha channel)
+     *                            and SVGs have their opacity folded into solid colours
+     * @param embedRefusal        why files may not be embedded in the PDF (recorded for each attempt),
+     *                            or {@code null} when the standard allows embedded files
+     */
+    public RenderResources(Attachments attachments, ResourceFetcher fetcher, SvgSanitizer svgSanitizer,
+                           boolean flattenTransparency, String embedRefusal) {
         this.attachments = attachments == null ? Attachments.none() : attachments;
         this.fetcher = fetcher;
         this.svgSanitizer = svgSanitizer;
         this.flattenTransparency = flattenTransparency;
+        this.embedRefusal = embedRefusal;
     }
 
     /** Every resource that could not be used, in the order first met, without duplicates. */
@@ -127,15 +144,30 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
     /**
      * Access control run by openhtmltopdf for every load, after {@link #resolveURI}. Refusals are
      * recorded here; failures of allowed loads are recorded by {@link #getUrl}.
+     *
+     * <p>File embeds only reach this method if openhtmltopdf's own "before resolving" controller lets
+     * them through: its default refuses them silently, so the renderer must replace it (see
+     * {@code PdfGenerationService}).
      */
     public boolean allow(String resolved, ExternalResourceType type) {
         if (resolved == null) {
             return false;
         }
         if (type == ExternalResourceType.FILE_EMBED) {
-            record(displayName(resolved), Reason.NOT_ALLOWED, "embedding files in the PDF is disabled");
-            return false;
+            if (embedRefusal != null) {
+                record(displayName(resolved), Reason.NOT_ALLOWED, embedRefusal);
+                return false;
+            }
+            if (!allowLoad(resolved)) {
+                return false;
+            }
+            embeds.add(resolved);
+            return true;
         }
+        return allowLoad(resolved);
+    }
+
+    private boolean allowLoad(String resolved) {
         String scheme = schemeOf(resolved);
         switch (scheme) {
             case "data", ATTACHMENT -> {
@@ -242,6 +274,9 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
             case "http", "https" -> loadRemote(resolved);
             default -> null; // refused by allow() before any load
         };
+        if (embeds.contains(resolved)) {
+            return raw; // embedded in the PDF as is: never rendered, so never sanitised nor flattened
+        }
         Loaded result = raw;
         if (raw != null && MediaTypes.isSvg(raw.mediaType(), resolved, raw.data())) {
             result = new Loaded(svgSanitizer.sanitize(raw.data(), svgInliner(resolved, depth), flattenTransparency),

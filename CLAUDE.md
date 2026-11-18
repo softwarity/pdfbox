@@ -40,10 +40,12 @@ HTML ──HtmlNormalizer(jsoup, SvgSanitizer)──► W3C DOM ──openhtmlto
   `<h1>/<h2>/<h3>`, else `pdfbox.default-title`), an `<html lang>` (`pdfbox.default-lang`) and a
   `<meta name="subject">` when the source omits them. Note it must be `subject`, not `description`:
   openhtmltopdf maps the PDF/UA description to the PDF *Subject* (`<meta name="subject">`). Explicit
-  source values always win. Then converts to the W3C DOM that openhtmltopdf consumes. JS never runs.
+  source values always win. An inline `<svg>` without `alt` gets one from `aria-label` / its `<title>`
+  (openhtmltopdf reads the `Figure` alternate text from `alt` only; PDF/UA §7.3). Then converts to the
+  W3C DOM that openhtmltopdf consumes. JS never runs.
 - **`PdfGenerationService`** drives `PdfRendererBuilder`: fast mode, register fonts, and for PDF/A
-  set conformance + embed the sRGB output intent (+ PDF/UA tagging for the "A" levels).
-- **`postProcessPdfA()`** is a PDFBox post-pass that only runs for PDF/A. It clears `/Interpolate`
+  set conformance + embed the sRGB output intent (+ PDF/UA tagging for the "A" levels and `PDF_UA_1`).
+- **`postProcess()`** is a PDFBox post-pass that runs for PDF/A and PDF/UA-1. It clears `/Interpolate`
   on every image (forbidden by all PDF/A parts; Batik paints SVG group `opacity` as an interpolated
   image), runs the PDF/A-1 transparency safety net, and re-saves with `NO_COMPRESSION` — required
   because any re-save with compression would write object/xref streams, illegal in PDF/A-1.
@@ -52,18 +54,32 @@ HTML ──HtmlNormalizer(jsoup, SvgSanitizer)──► W3C DOM ──openhtmlto
   **header** version (`getDocument().getVersion()`, not `PDDocument.getVersion()`, which also reads
   the catalog) differs: stale xref-stream trailer keys are dropped and the `%PDF-1.x` header bytes are
   **patched in place**, because PDFBox does not rewrite the header line (same length keeps xref
-  offsets valid). Re-validate with veraPDF after touching this.
+  offsets valid). Re-validate with veraPDF after touching this. It also runs `EmbeddedFiles.register`
+  (see Resources).
 
 ## Resources (package `resource`) — deny by default
 
 `RenderResources` is, for one render, the `FSUriResolver`, the post-resolution access controller
-(`allow`, only called for loads — not for `<a href>`) and the `FSStreamFactory` for
+(`allow`, called for loads and file embeds — not for plain `<a href>` links) and the `FSStreamFactory` for
 `data`/`http`/`https`/`pdfbox-attachment`/`pdfbox-missing` (`useProtocolsStreamImplementation`
 **replaces** openhtmltopdf's default factory map). Order: attached file by plain name →
 `data:` → `http(s)` on an allowed host (`ResourceFetcher`: manual redirects re-checked per hop,
 one deadline, size cap, per-render cache). Anything else is refused and **recorded**
 (`UnresolvedResource` + reason); `MissingResourcePolicy.FAIL` turns the list into
 `UnresolvedResourcesException` → 422, `REPORT` returns it (headers `X-Pdfbox-Unresolved-*`).
+**File embeds** (`<a href download>`, `ExternalResourceType.FILE_EMBED`): openhtmltopdf's default
+*before-resolving* controller (`NaiveUserAgent.DefaultAccessController`) refuses them **silently**, before
+our `allow` runs — so `PdfGenerationService` installs a pass-through before-controller and
+`RenderResources` decides: refused + recorded when the standard forbids embedded files
+(`PdfAStandard.allowsEmbeddedFiles()`: PDF/A-1 and PDF/A-2 → 422), otherwise resolved like any load and
+served **raw** (no sanitising/flattening). `EmbeddedFiles` (post-pass) then adds what openhtmltopdf
+leaves out: catalog `/AF`, the `EmbeddedFiles` name tree, default `AFRelationship`/MIME subtype/dates,
+re-tags the `Link` struct element of the file-attachment annotation as `Annot` in tagged output
+(PDF/UA §7.18.1) and, in PDF/A-3, `FacturX` declares an embedded `factur-x.xml`/`xrechnung.xml` in the
+XMP (`fx:` properties + PDF/A extension schema, merged into an existing `pdfaExtension:schemas` bag
+when the A levels already have one; profile read from `GuidelineSpecifiedDocumentContextParameter/ID`,
+unknown → 400). HTML attributes: `download` (name), `title` (Desc), `relationship`,
+`data-content-type`. `AttachmentValidator` accepts `.xml/.json/.csv/.txt` (UTF-8) and `.pdf` for this.
 Fetched/attached SVG is passed through `SvgSanitizer` with `svgInliner(base)`, which rewrites every
 external reference to a `data:` URI under the same policy; Batik runs as
 `BatikSVGDrawer(SECURE, {"data"})`. Gotchas learned the hard way: Batik 1.17 only knows
@@ -75,11 +91,14 @@ PDFBox cannot embed it. Bundled fonts never go through the resolver; Batik only 
 ## PdfAStandard
 
 `PdfAStandard` is the single source of truth mapping public enum values → openhtmltopdf
-`PdfAConformance` + the required PDF version (1.4 for part 1, 1.7 for parts 2/3) + whether the level
-is accessible/tagged ("A") + `part()` (1/2/3, or 0 for `NONE`) and `level()` (`"A"`/`"B"`/`"U"`). To
+`PdfAConformance` + the required PDF version (1.4 for part 1, 1.7 for parts 2/3 and PDF/UA-1) + whether
+the level is accessible/tagged ("A", and `PDF_UA_1`) + `part()` (1/2/3, or 0 for `NONE`/`PDF_UA_1`) and
+`level()` (`"A"`/`"B"`/`"U"`, `"—"` otherwise). `PDF_UA_1` is not PDF/A: `isPdfA()` is false
+(`conformance == NONE`), `isPdfUa()` true — openhtmltopdf's `usePdfUaAccessibility` alone, which writes
+`pdfuaid:part`; tests map it to veraPDF flavour `ua1` (`PdfTestSupport.flavour`). To
 add or change a standard, edit this enum; the controller exposes its `values()` at
 `GET /api/v1/standards` automatically, and `StandardInfoService` derives its constraint docs from
-`part()`/`level()`.
+`part()`/`level()` (`PDF_UA_1` has its own branch there).
 
 `StandardInfoService` builds a self-describing HTML page listing a standard's constraints, composed
 from three orthogonal sources (rules common to all PDF/A + part-specific rules + level guarantees) so

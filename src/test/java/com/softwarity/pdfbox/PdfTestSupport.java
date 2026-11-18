@@ -139,6 +139,11 @@ final class PdfTestSupport {
 
     private static volatile boolean veraReady;
 
+    /** The veraPDF validation profile of {@code standard}: {@code 1a}…{@code 3u}, or {@code ua1}. */
+    static PDFAFlavour flavour(PdfAStandard standard) {
+        return PDFAFlavour.fromString(standard.isPdfUa() ? "ua1" : standard.part() + standard.level().toLowerCase());
+    }
+
     /** Validates {@code pdf} against the flavour of {@code standard}; returns the distinct failures. */
     static List<String> veraPdfFailures(byte[] pdf, PdfAStandard standard) throws Exception {
         if (!veraReady) {
@@ -149,7 +154,7 @@ final class PdfTestSupport {
                 }
             }
         }
-        PDFAFlavour flavour = PDFAFlavour.fromString(standard.part() + standard.level().toLowerCase());
+        PDFAFlavour flavour = flavour(standard);
         try (PDFAParser parser = Foundries.defaultInstance()
                 .createParser(new ByteArrayInputStream(pdf), flavour)) {
             PDFAValidator validator = Foundries.defaultInstance().createValidator(flavour, false);

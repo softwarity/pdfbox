@@ -55,7 +55,7 @@ class StandardConformanceValidationTest {
     void infoPdfConformsToItsOwnStandard(PdfAStandard standard) throws Exception {
         byte[] pdf = pdfService.render(standardInfoService.toHtml(standard), standard);
 
-        PDFAFlavour flavour = PDFAFlavour.fromString(standard.part() + standard.level().toLowerCase());
+        PDFAFlavour flavour = PdfTestSupport.flavour(standard);
         try (PDFAParser parser = Foundries.defaultInstance()
                 .createParser(new ByteArrayInputStream(pdf), flavour)) {
             PDFAValidator validator = Foundries.defaultInstance().createValidator(flavour, false);

@@ -27,10 +27,16 @@ public class StandardInfoService {
 
     /** Canonical display name, e.g. {@code "PDF/A-1A"} (or a label for {@link PdfAStandard#NONE}). */
     public String displayName(PdfAStandard s) {
+        if (s.isPdfUa()) {
+            return "PDF/UA-1";
+        }
         return s == PdfAStandard.NONE ? "Plain PDF (no PDF/A)" : "PDF/A-" + s.part() + s.level();
     }
 
     private String isoReference(PdfAStandard s) {
+        if (s.isPdfUa()) {
+            return "ISO 14289-1:2014";
+        }
         return switch (s.part()) {
             case 1 -> "ISO 19005-1:2005";
             case 2 -> "ISO 19005-2:2011";
@@ -40,6 +46,9 @@ public class StandardInfoService {
     }
 
     private String basePdf(PdfAStandard s) {
+        if (s.isPdfUa()) {
+            return "PDF 1.7 (ISO 32000-1)";
+        }
         return switch (s.part()) {
             case 1 -> "PDF 1.4";
             case 2, 3 -> "PDF 1.7 (ISO 32000-1)";
@@ -57,6 +66,27 @@ public class StandardInfoService {
                             + "as JavaScript, encryption, attachments or external links are all permitted.",
                     "Pick a PDF/A standard (PDF_A_1B, PDF_A_2U, PDF_A_3A, …) to enforce the long-term "
                             + "archiving guarantees described by the other variants of this page.")));
+            return out;
+        }
+        if (s.isPdfUa()) {
+            out.add(new Section("What PDF/UA-1 guarantees", List.of(
+                    "Universal accessibility: the document is usable with assistive technology such as "
+                            + "screen readers, magnifiers and braille displays.",
+                    "A tagged logical structure (Tagged PDF) carries the reading order, the heading "
+                            + "hierarchy, lists, tables and links of the source HTML.",
+                    "Every character maps to Unicode, so text can be read aloud, searched and copied.")));
+            out.add(new Section("Always enforced", List.of(
+                    "All real content is tagged; decoration is marked as an artifact.",
+                    "The document declares its natural language (from <html lang>, or pdfbox.default-lang).",
+                    "The document title is set and shown in the viewer's title bar instead of the file name.",
+                    "Images carry alternate text (the <img alt> attribute): give every meaningful image one.",
+                    "Annotations — links, embedded files — are tagged and described.",
+                    "All fonts are embedded.",
+                    "The XMP metadata identifies the file as PDF/UA (pdfuaid:part = 1).")));
+            out.add(new Section("Not enforced (this is not PDF/A)", List.of(
+                    "No archival constraints: no output intent, transparency and any embedded file are allowed.",
+                    "Need both? PDF_A_1A, PDF_A_2A and PDF_A_3A are PDF/A with the same accessible tagging.")));
+            out.add(new Section("How this very file satisfies PDF/UA-1", proof(s)));
             return out;
         }
 
@@ -125,14 +155,16 @@ public class StandardInfoService {
                     "Optional-content layers are allowed.",
                     "JPEG 2000 (JPXDecode) image compression is allowed.",
                     "Object streams and compressed cross-reference streams are allowed.",
-                    "Other PDF/A files (part 1 or part 2) may be embedded as attachments.",
+                    "Only PDF/A documents may be embedded (pdfbox refuses embedded files here: use PDF/A-3).",
                     "Supports PDF/A collections (portfolios) and digital signatures.");
             case 3 -> List.of(
                     "Header and catalog version is PDF 1.7 (ISO 32000-1).",
                     "Everything PDF/A-2 allows (transparency, layers, JPEG 2000, object streams, …).",
                     "Attachments may be files of ANY format — not only PDF/A.",
                     "This is what enables hybrid invoices such as Factur-X / ZUGFeRD: a human-readable "
-                            + "PDF with its machine-readable source (XML, CSV, spreadsheet) embedded.");
+                            + "PDF with its machine-readable source (XML, CSV, spreadsheet) embedded.",
+                    "With pdfbox: <a href=\"factur-x.xml\" download=\"factur-x.xml\"> embeds the attached "
+                            + "file; an embedded factur-x.xml is also declared in the XMP as a Factur-X invoice.");
             default -> List.of();
         };
     }
@@ -141,9 +173,12 @@ public class StandardInfoService {
         List<String> p = new ArrayList<>();
         p.add("Declared conformance: " + displayName(s) + " (" + isoReference(s) + ").");
         p.add("PDF version written in the header and catalog: " + s.pdfVersion() + ".");
-        p.add("openhtmltopdf conformance flag used to generate it: " + s.conformance() + ".");
+        if (s.isPdfA()) {
+            p.add("openhtmltopdf conformance flag used to generate it: " + s.conformance() + ".");
+        }
         p.add("Accessibility / PDF-UA tagging: "
-                + (s.isAccessible() ? "enabled (this is an \"A\" level)" : "not required at this level")
+                + (s.isPdfUa() ? "enabled (this is PDF/UA)"
+                        : s.isAccessible() ? "enabled (this is an \"A\" level)" : "not required at this level")
                 + ".");
         p.add("Produced fully offline by softwarity/pdfbox with bundled fonts and the sRGB profile — "
                 + "no external services or runtime configuration.");
@@ -177,8 +212,8 @@ public class StandardInfoService {
                 + row("Standard", escape(displayName(s)))
                 + row("Reference", escape(isoReference(s)))
                 + row("Base format", escape(basePdf(s)))
-                + row("Conformance level", s == PdfAStandard.NONE ? "—" : escape(s.level()))
-                + row("Searchable text", "A".equals(s.level()) || "U".equals(s.level())
+                + row("Conformance level", s.isPdfA() ? escape(s.level()) : "—")
+                + row("Searchable text", "A".equals(s.level()) || "U".equals(s.level()) || s.isPdfUa()
                         ? "Guaranteed (Unicode mapping)" : "Not guaranteed at this level")
                 + row("Accessible (tagged)", s.isAccessible() ? "Yes (PDF/UA structure)" : "No")
                 + "</tbody></table>";

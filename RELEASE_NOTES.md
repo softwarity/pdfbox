@@ -2,6 +2,30 @@
 
 ## NEXT RELEASE
 
+### Added
+- **Embedded files (`<a href="…" download="…">`).** In `PDF_A_3A/3B/3U`, `PDF_UA_1` and `NONE`, a link
+  with a `download` attribute embeds the file it points to (an attached file or a `data:` URI). Its
+  `title` becomes the description, `relationship` the PDF/A-3 `AFRelationship` (default `Unspecified`)
+  and `data-content-type` the MIME type (default: from the extension). Every embedded file is associated
+  with the document (catalog `/AF`) and listed in the `EmbeddedFiles` name tree. The multipart
+  `resources` parts now also accept `.xml`, `.json`, `.csv`, `.txt` and `.pdf` files to embed.
+- **Factur-X / ZUGFeRD / XRechnung invoices.** In PDF/A-3, an embedded `factur-x.xml` (or
+  `xrechnung.xml`) is declared in the XMP metadata as a hybrid invoice, with the conformance level read
+  from the invoice (MINIMUM, BASIC WL, BASIC, EN 16931, EXTENDED, XRECHNUNG) and the matching PDF/A
+  extension schema; the relationship defaults to `Data` (MINIMUM, BASIC WL) or `Alternative`. A
+  `factur-x.xml` without a known profile is a 400.
+- **`PDF_UA_1` standard.** Accessible, tagged PDF 1.7 identified as PDF/UA-1 (ISO 14289-1), without the
+  PDF/A archiving constraints. Validated with veraPDF's PDF/UA-1 profile; also listed by
+  `GET /api/v1/standards` and described by `GET /api/v1/pdf-info?standard=PDF_UA_1`.
+
+### Fixed
+- **Embedded-file links were dropped silently.** openhtmltopdf's default access control discarded them
+  before the resource policy saw them, so the document rendered with a 200 and without the file. They
+  are now embedded where the standard allows it, and refused like any unresolvable resource in PDF/A-1
+  and PDF/A-2 (a 422, or the `X-Pdfbox-Unresolved-*` headers with `onMissingResource=report`).
+- Tagged output (the `A` levels and PDF/UA-1): an inline `<svg>` now takes its alternate text from
+  `aria-label` or its `<title>`, instead of producing a `Figure` without one.
+
 ---
 
 ## 2.0.0

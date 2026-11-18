@@ -27,21 +27,29 @@ import org.springframework.web.multipart.MultipartFile;
  * anything ambiguous or unexpected with a clear message (400), or too large (413). The part's file
  * name is what the HTML cites, so it must be a plain name: no {@code /}, {@code \}, {@code ..} nor
  * control character, and unique within the request. Accepted types: CSS, PNG, JPEG, GIF, WebP, SVG
- * and TrueType fonts — checked on the content itself, not only on the extension.
+ * and TrueType fonts (what the document renders), plus XML, JSON, CSV, plain text and PDF (files to
+ * embed in the PDF with {@code <a href download>}) — checked on the content itself, not only on the
+ * extension.
  */
 @Component
 class AttachmentValidator {
 
     /** Accepted extensions → the media type the content must actually have. */
-    static final Map<String, String> ACCEPTED = Map.of(
-            "css", "text/css",
-            "png", "image/png",
-            "jpg", "image/jpeg",
-            "jpeg", "image/jpeg",
-            "gif", "image/gif",
-            "webp", "image/webp",
-            "svg", "image/svg+xml",
-            "ttf", "font/ttf");
+    static final Map<String, String> ACCEPTED = Map.ofEntries(
+            Map.entry("css", "text/css"),
+            Map.entry("png", "image/png"),
+            Map.entry("jpg", "image/jpeg"),
+            Map.entry("jpeg", "image/jpeg"),
+            Map.entry("gif", "image/gif"),
+            Map.entry("webp", "image/webp"),
+            Map.entry("svg", "image/svg+xml"),
+            Map.entry("ttf", "font/ttf"),
+            // Files to embed in the PDF (never rendered): invoices, data, documents.
+            Map.entry("xml", "text/xml"),
+            Map.entry("json", "application/json"),
+            Map.entry("csv", "text/csv"),
+            Map.entry("txt", "text/plain"),
+            Map.entry("pdf", "application/pdf"));
 
     private final long maxPartSize;
     private final long maxTotalSize;
@@ -107,13 +115,24 @@ class AttachmentValidator {
         String expected = ACCEPTED.get(extension);
         if (expected == null) {
             throw new IllegalArgumentException("Unsupported attached file type '" + name + "'. Accepted: "
-                    + "CSS (.css), images (.png, .jpg/.jpeg, .gif, .webp, .svg) and TrueType fonts (.ttf).");
+                    + "CSS (.css), images (.png, .jpg/.jpeg, .gif, .webp, .svg), TrueType fonts (.ttf) and, "
+                    + "to embed in the PDF, .xml, .json, .csv, .txt and .pdf files.");
         }
         String actual = MediaTypes.sniff(head(part));
         switch (expected) {
             case "text/css" -> {
                 if (!isUtf8Text(part)) {
                     throw mismatch(name, "a UTF-8 text stylesheet", actual);
+                }
+            }
+            case "text/xml", "application/json", "text/csv", "text/plain" -> {
+                if (!isUtf8Text(part)) {
+                    throw mismatch(name, "a UTF-8 text file", actual);
+                }
+            }
+            case "application/pdf" -> {
+                if (!isPdf(head(part))) {
+                    throw mismatch(name, "a PDF document", actual);
                 }
             }
             case "image/svg+xml" -> {
@@ -155,6 +174,12 @@ class AttachmentValidator {
     }
 
     private static final int SNIFF_BYTES = 1024;
+
+    /** A PDF starts with {@code %PDF-} (within the first KB, as readers tolerate leading bytes). */
+    private static boolean isPdf(byte[] head) {
+        String start = new String(head, StandardCharsets.ISO_8859_1);
+        return start.contains("%PDF-");
+    }
 
     /** Streams the part through a strict UTF-8 decoder; a NUL byte also disqualifies it as CSS. */
     private static boolean isUtf8Text(MultipartFile part) {

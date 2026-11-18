@@ -103,7 +103,8 @@ public class PdfController {
             MultipartFile file,
             @RequestPart(value = "resources", required = false)
             @ArraySchema(arraySchema = @Schema(description = "Files the HTML cites by plain name: "
-                    + "CSS, PNG, JPEG, GIF, WebP, SVG, TTF"),
+                    + "CSS, PNG, JPEG, GIF, WebP, SVG, TTF — and XML, JSON, CSV, TXT, PDF to embed in the PDF "
+                    + "with <a href download> (PDF/A-3, PDF/UA-1 or NONE; factur-x.xml makes a Factur-X invoice)"),
                     schema = @Schema(type = "string", format = "binary"))
             @Nullable List<MultipartFile> resources,
             @RequestParam(name = "standard", required = false) @Nullable PdfAStandard standard,

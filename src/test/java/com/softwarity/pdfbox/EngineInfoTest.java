@@ -72,6 +72,8 @@ class EngineInfoTest {
                 // PDF/A requires the XMP pdf:Producer to match the Info dictionary.
                 assertThat(new String(pdf, java.nio.charset.StandardCharsets.ISO_8859_1)).as("%s", standard)
                         .contains(EngineInfo.producer());
+            }
+            if (standard.isPdfA() || standard.isPdfUa()) {
                 assertThat(PdfTestSupport.veraPdfFailures(pdf, standard)).as("%s", standard).isEmpty();
             }
         }

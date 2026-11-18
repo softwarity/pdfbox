@@ -75,7 +75,7 @@ import { CodeComponent } from '../code/code.component';
       </thead>
       <tbody>
         <tr><td><code>file</code></td><td>yes</td><td>The HTML document (exactly one).</td></tr>
-        <tr><td><code>resources</code></td><td>no, repeatable</td><td>One part per attached file: <code>.css</code>, <code>.png</code>, <code>.jpg</code>/<code>.jpeg</code>, <code>.gif</code>, <code>.webp</code>, <code>.svg</code>, <code>.ttf</code>.</td></tr>
+        <tr><td><code>resources</code></td><td>no, repeatable</td><td>One part per attached file: <code>.css</code>, <code>.png</code>, <code>.jpg</code>/<code>.jpeg</code>, <code>.gif</code>, <code>.webp</code>, <code>.svg</code>, <code>.ttf</code> — and, to embed in the PDF, <code>.xml</code>, <code>.json</code>, <code>.csv</code>, <code>.txt</code>, <code>.pdf</code> (see <a routerLink="/standards">PDF/A standards → Embedded files</a>).</td></tr>
         <tr><td><code>standard</code></td><td>no</td><td>Output standard; defaults to the configured default.</td></tr>
         <tr><td><code>filename</code></td><td>no</td><td>Output name; defaults to the HTML file name with a <code>.pdf</code> extension.</td></tr>
         <tr><td><code>onMissingResource</code></td><td>no</td><td><code>fail</code> (default) or <code>report</code>.</td></tr>
@@ -142,7 +142,8 @@ X-Pdfbox-Unresolved-Resources: "sigwx.svg";reason=not-found, "https://tiles.exam
   "NONE",
   "PDF_A_1A", "PDF_A_1B",
   "PDF_A_2A", "PDF_A_2B", "PDF_A_2U",
-  "PDF_A_3A", "PDF_A_3B", "PDF_A_3U"
+  "PDF_A_3A", "PDF_A_3B", "PDF_A_3U",
+  "PDF_UA_1"
 ]</app-code>
 
     <h3>OpenAPI &amp; Swagger UI</h3>

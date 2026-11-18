@@ -157,7 +157,11 @@ class MultipartResourcesTest {
 
     @Test
     void unexpectedTypesAreA400() throws Exception {
-        expect400(resource("notes.txt", "text/plain", "hi".getBytes()), "Unsupported attached file type 'notes.txt'");
+        expect400(resource("notes.docx", "application/octet-stream", "hi".getBytes()),
+                "Unsupported attached file type 'notes.docx'");
+        expect400(resource("factur-x.xml", "text/xml", new byte[]{'<', 0, (byte) 0xFF}),
+                "'factur-x.xml' is not a UTF-8 text file");
+        expect400(resource("annex.pdf", "application/pdf", "not a pdf".getBytes()), "'annex.pdf' is not a PDF document");
         expect400(resource("fake.png", "image/png", "not a png".getBytes()), "'fake.png' is not a PNG image");
         expect400(resource("map.svg", "image/svg+xml", PdfTestSupport.redPng()), "'map.svg' is not an SVG document");
         expect400(resource("font.ttf", "font/ttf", "OTTO and some CFF".getBytes()), "OpenType/CFF");
