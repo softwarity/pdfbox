@@ -16,7 +16,7 @@ import { CodeComponent } from '../code/code.component';
 
     <p>The name encodes the <strong>part</strong> (1/2/3) and the <strong>conformance level</strong>:</p>
     <ul>
-      <li><strong>Part 1</strong> — based on PDF 1.4 (classic cross-reference table, no transparency).</li>
+      <li><strong>Part 1</strong> — based on PDF 1.4 (classic cross-reference table, no transparency: pdfbox flattens it over white — semi-transparent colours and images with an alpha channel become their solid look on white paper).</li>
       <li><strong>Part 2</strong> — based on PDF 1.7 (JPEG2000, transparency, object streams).</li>
       <li><strong>Part 3</strong> — like part 2, but allows arbitrary embedded file attachments.</li>
       <li><strong>Level B</strong> (basic) — guarantees the visual appearance is reproducible.</li>

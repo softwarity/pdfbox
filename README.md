@@ -135,8 +135,8 @@ X-Pdfbox-Unresolved-Resources: "sigwx.svg";reason=not-found, "https://tiles.exam
 Inline `<svg>` and attached / fetched `.svg` files are drawn as vector art (Apache Batik). Scripts and
 `on*` handlers are removed and never run; Batik itself may only read `data:` URIs — every other
 reference inside an SVG goes through the rules above. SVG text is drawn with the bundled fonts, never
-with host fonts. PDF/A-2/3 accept SVG transparency; **PDF/A-1 forbids transparency**, see the
-conformance notes below.
+with host fonts. PDF/A-2/3 keep SVG transparency; for **PDF/A-1**, which forbids it, it is flattened
+over white (see the conformance notes below).
 
 ### Errors
 
@@ -232,10 +232,14 @@ freeze it to a static instance first (the image does this for the Noto CJK varia
   the source omits them (see `PDFBOX_DEFAULT_LANG` / `PDFBOX_DEFAULT_TITLE`), but for genuinely
   accessible output you should supply accurate ones — generic defaults satisfy the validator, not a
   screen-reader user.
-- **Transparency and PDF/A-1.** PDF/A-1 forbids transparency. CSS `rgba()` / `opacity` are already
-  neutralised by the engine, but SVG `opacity`, `fill-opacity`, `stop-opacity` and PNG images with an
-  alpha channel are currently rendered as-is and the file is then **not** PDF/A-1 conformant (veraPDF
-  §6.4). Use PDF/A-2 or PDF/A-3 for such content, or flatten it beforehand. PDF/A-2/3 are fine.
+- **Transparency and PDF/A-1.** PDF/A-1 forbids transparency, so for part 1 it is **flattened over
+  white**: images with an alpha channel (PNG, GIF, WebP — attached, fetched, `data:` or inside SVG)
+  are composited on white, and SVG `opacity` / `fill-opacity` / `stroke-opacity` / `stop-opacity` are
+  folded into solid colours (a 50 % red becomes `#ff8080`). It is a simple flattening: content over a
+  non-white background is approximated as if over white, and what cannot be folded (a gradient under
+  a transparent group, an opacity set in an SVG `<style>` rule, an unusual named colour) is drawn
+  opaque. CSS `rgba()` / `opacity` are neutralised by the engine itself. PDF/A-2 and PDF/A-3 keep real
+  transparency.
 - Always validate critical output with [veraPDF](https://verapdf.org/):
   ```bash
   verapdf --flavour 1b document.pdf

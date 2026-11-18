@@ -107,6 +107,39 @@ public final class MediaTypes {
         return head.contains("<svg");
     }
 
+    /** Raster formats that can carry transparency (WebP is converted to PNG before this check). */
+    public static boolean mayHaveAlpha(String mediaType) {
+        return "image/png".equals(mediaType) || "image/gif".equals(mediaType);
+    }
+
+    /**
+     * Composites an image with an alpha channel (or a transparent palette entry) over white and
+     * returns it as an opaque PNG; an image without transparency is returned unchanged. PDF/A-1
+     * forbids soft masks, so this is how such an image is "flattened" for it.
+     */
+    public static byte[] flattenOnWhite(byte[] image) {
+        try {
+            BufferedImage source = ImageIO.read(new ByteArrayInputStream(image));
+            if (source == null) {
+                throw new IllegalArgumentException("unreadable image");
+            }
+            if (!source.getColorModel().hasAlpha()) {
+                return image;
+            }
+            BufferedImage opaque = new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_RGB);
+            var g = opaque.createGraphics();
+            g.setColor(java.awt.Color.WHITE);
+            g.fillRect(0, 0, opaque.getWidth(), opaque.getHeight());
+            g.drawImage(source, 0, 0, null);
+            g.dispose();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(opaque, "png", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalArgumentException("unreadable image: " + e.getMessage(), e);
+        }
+    }
+
     /**
      * PDFBox cannot embed WebP; it is decoded (TwelveMonkeys ImageIO plugin) and re-encoded as a
      * lossless PNG, alpha channel included.

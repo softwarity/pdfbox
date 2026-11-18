@@ -43,11 +43,11 @@ the missing resources in the `X-Pdfbox-Unresolved-Resources` / `X-Pdfbox-Unresol
 
 ### Fixed
 - PDF/A output no longer carries `/Interpolate true` on images (forbidden in every PDF/A part).
-
-### Known limitation
-- **PDF/A-1 and transparency**: SVG `opacity`, `fill-opacity`, `stop-opacity` and PNG images with an
-  alpha channel are rendered faithfully, so the result is not PDF/A-1 conformant (PDF/A-1 forbids
-  transparency). PDF/A-2 and PDF/A-3 are conformant.
+- **PDF/A-1 and transparency**: PDF/A-1 forbids transparency, so it is now flattened over white —
+  images with an alpha channel are composited on white, SVG opacities are folded into solid colours
+  (50 % red → `#ff8080`), and anything left is made opaque — instead of producing a non-conformant
+  file. Simple flattening: content over a non-white background is approximated as if over white.
+  PDF/A-2 and PDF/A-3 keep real transparency.
 
 ### Tests
 - No test touches the network: a local server counts requests. New suites cover the resource policy,

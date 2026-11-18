@@ -66,13 +66,24 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
     private final Attachments attachments;
     private final ResourceFetcher fetcher;
     private final SvgSanitizer svgSanitizer;
+    private final boolean flattenTransparency;
     private final Map<String, Loaded> cache = new HashMap<>();
     private final Map<String, UnresolvedResource> unresolved = new LinkedHashMap<>();
 
     public RenderResources(Attachments attachments, ResourceFetcher fetcher, SvgSanitizer svgSanitizer) {
+        this(attachments, fetcher, svgSanitizer, false);
+    }
+
+    /**
+     * @param flattenTransparency PDF/A-1: raster images are composited over white (no alpha channel)
+     *                            and SVGs have their opacity folded into solid colours
+     */
+    public RenderResources(Attachments attachments, ResourceFetcher fetcher, SvgSanitizer svgSanitizer,
+                           boolean flattenTransparency) {
         this.attachments = attachments == null ? Attachments.none() : attachments;
         this.fetcher = fetcher;
         this.svgSanitizer = svgSanitizer;
+        this.flattenTransparency = flattenTransparency;
     }
 
     /** Every resource that could not be used, in the order first met, without duplicates. */
@@ -186,6 +197,9 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
 
     private UnaryOperator<String> svgInliner(String baseUri, int depth) {
         return ref -> {
+            if (ref.regionMatches(true, 0, "data:", 0, 5) && !flattenTransparency) {
+                return ref; // already self-contained, nothing to change
+            }
             String fragment = "";
             String target = ref;
             int hash = ref.indexOf('#');
@@ -230,10 +244,20 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
         };
         Loaded result = raw;
         if (raw != null && MediaTypes.isSvg(raw.mediaType(), resolved, raw.data())) {
-            result = new Loaded(svgSanitizer.sanitize(raw.data(), svgInliner(resolved, depth)), "image/svg+xml");
+            result = new Loaded(svgSanitizer.sanitize(raw.data(), svgInliner(resolved, depth), flattenTransparency),
+                    "image/svg+xml");
         } else if (raw != null && MediaTypes.isWebp(raw.data())) {
             try {
                 result = new Loaded(MediaTypes.webpToPng(raw.data()), "image/png");
+            } catch (IllegalArgumentException e) {
+                record(displayName(resolved), Reason.FETCH_ERROR, e.getMessage());
+                result = null;
+            }
+        }
+        if (result != null && flattenTransparency && MediaTypes.mayHaveAlpha(result.mediaType())) {
+            try {
+                result = new Loaded(MediaTypes.flattenOnWhite(result.data()), result.mediaType().equals("image/png")
+                        || result.mediaType().equals("image/gif") ? "image/png" : result.mediaType());
             } catch (IllegalArgumentException e) {
                 record(displayName(resolved), Reason.FETCH_ERROR, e.getMessage());
                 result = null;

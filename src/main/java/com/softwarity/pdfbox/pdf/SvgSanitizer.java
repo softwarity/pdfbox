@@ -61,6 +61,14 @@ public class SvgSanitizer {
 
     /** Sanitizes an SVG document given as bytes; returns the cleaned document as UTF-8 bytes. */
     public byte[] sanitize(byte[] svg, UnaryOperator<String> inliner) {
+        return sanitize(svg, inliner, false);
+    }
+
+    /**
+     * @param flattenTransparency PDF/A-1: also fold every opacity into solid colours over white (see
+     *                            {@link SvgTransparencyFlattener})
+     */
+    public byte[] sanitize(byte[] svg, UnaryOperator<String> inliner, boolean flattenTransparency) {
         Document doc = Jsoup.parse(new String(svg, StandardCharsets.UTF_8), "", Parser.xmlParser());
         doc.outputSettings()
                 .syntax(Document.OutputSettings.Syntax.xml)
@@ -69,7 +77,7 @@ public class SvgSanitizer {
                 .prettyPrint(false);
         for (Element root : doc.select("svg")) {
             if (root.parents().stream().noneMatch(p -> p.normalName().endsWith("svg"))) {
-                sanitize(root, inliner);
+                sanitize(root, inliner, flattenTransparency);
             }
         }
         return doc.outerHtml().getBytes(StandardCharsets.UTF_8);
@@ -77,6 +85,14 @@ public class SvgSanitizer {
 
     /** Sanitizes an SVG subtree in place (an inline {@code <svg>} of an HTML document, for instance). */
     public void sanitize(Element svgRoot, UnaryOperator<String> inliner) {
+        sanitize(svgRoot, inliner, false);
+    }
+
+    /** Sanitizes in place; with {@code flattenTransparency}, also removes all transparency (PDF/A-1). */
+    public void sanitize(Element svgRoot, UnaryOperator<String> inliner, boolean flattenTransparency) {
+        if (flattenTransparency) {
+            SvgTransparencyFlattener.flatten(svgRoot);
+        }
         // Collect first: the subtree is modified while walking it.
         List<Element> elements = new ArrayList<>(svgRoot.select("*"));
         for (Element el : elements) {
@@ -147,8 +163,12 @@ public class SvgSanitizer {
     /** {@code #id} and {@code data:} stay as they are; anything else goes through the inliner. */
     private static String rewriteReference(String ref, UnaryOperator<String> inliner) {
         String trimmed = ref == null ? "" : ref.trim();
-        if (trimmed.isEmpty() || trimmed.startsWith("#") || isData(trimmed)) {
+        if (trimmed.isEmpty() || trimmed.startsWith("#")) {
             return trimmed;
+        }
+        if (isData(trimmed)) {
+            // Handed to the inliner too, which may rewrite it (PDF/A-1: images flattened over white).
+            return inliner == null ? trimmed : inliner.apply(trimmed);
         }
         return inliner == null ? null : inliner.apply(trimmed);
     }

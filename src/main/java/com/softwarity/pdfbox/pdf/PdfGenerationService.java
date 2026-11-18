@@ -16,6 +16,7 @@ import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
 import com.openhtmltopdf.svgsupport.BatikSVGDrawer.SvgScriptMode;
 
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSObject;
 import org.apache.pdfbox.cos.COSObjectKey;
@@ -68,8 +69,11 @@ public class PdfGenerationService {
     public RenderResult render(String html, PdfAStandard standard, Attachments attachments,
                                MissingResourcePolicy policy) {
         // One resource policy per render: resolution, allow-list, fetch cache, unresolved list.
-        RenderResources resources = new RenderResources(attachments, fetcher, svgSanitizer);
-        org.w3c.dom.Document doc = htmlNormalizer.toW3c(html, resources.svgInliner(null));
+        // PDF/A-1 forbids transparency: flatten it over white at the source (images, SVG opacity);
+        // the post-pass then neutralises whatever is left. Parts 2/3 keep real transparency.
+        boolean flatten = standard.part() == 1;
+        RenderResources resources = new RenderResources(attachments, fetcher, svgSanitizer, flatten);
+        org.w3c.dom.Document doc = htmlNormalizer.toW3c(html, resources.svgInliner(null), flatten);
 
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
@@ -139,6 +143,46 @@ public class PdfGenerationService {
     }
 
     /**
+     * PDF/A-1 safety net (ISO 19005-1 §6.4), after transparency has been flattened at the source:
+     * whatever is left — an opacity in an SVG {@code <style>} rule, a gradient under a transparent
+     * group, a colour the flattener does not know — is made opaque rather than left non-conformant.
+     * Constant alpha forced to 1, soft masks removed, blend modes normal, transparency groups dropped.
+     */
+    private static void neutralizeTransparency(PDDocument doc) {
+        COSName extGState = COSName.EXT_G_STATE;
+        for (COSObjectKey key : doc.getDocument().getXrefTable().keySet()) {
+            COSObject object = doc.getDocument().getObjectFromPool(key);
+            if (object == null || !(object.getObject() instanceof COSDictionary dict)) {
+                continue;
+            }
+            if (extGState.equals(dict.getCOSName(COSName.TYPE)) || dict.containsKey(COSName.CA)
+                    || dict.containsKey(COSName.CA_NS) || dict.containsKey(COSName.SMASK)
+                    && !(dict instanceof COSStream)) {
+                if (dict.containsKey(COSName.CA)) {
+                    dict.setFloat(COSName.CA, 1f);
+                }
+                if (dict.containsKey(COSName.CA_NS)) {
+                    dict.setFloat(COSName.CA_NS, 1f);
+                }
+                if (dict.containsKey(COSName.SMASK) && !(dict instanceof COSStream)) {
+                    dict.setItem(COSName.SMASK, COSName.NONE);
+                }
+                if (dict.containsKey(COSName.BM)) {
+                    dict.setItem(COSName.BM, COSName.getPDFName("Normal"));
+                }
+            }
+            if (dict instanceof COSStream stream && COSName.IMAGE.equals(stream.getCOSName(COSName.SUBTYPE))) {
+                stream.removeItem(COSName.SMASK);
+                stream.removeItem(COSName.getPDFName("SMaskInData"));
+            }
+            if (dict.getDictionaryObject(COSName.GROUP) instanceof COSDictionary group
+                    && COSName.TRANSPARENCY.equals(group.getCOSName(COSName.S))) {
+                dict.removeItem(COSName.GROUP);
+            }
+        }
+    }
+
+    /**
      * Re-saves the document with the PDF version required by the target PDF/A part and without object
      * streams, so the output uses a classic cross-reference table — object/xref streams are forbidden
      * in PDF/A-1 and the byte-identical header keeps every validator happy.
@@ -158,6 +202,9 @@ public class PdfGenerationService {
                 trailer.removeItem(stale);
             }
             clearImageInterpolation(doc);
+            if (version < 1.5f) {
+                neutralizeTransparency(doc);
+            }
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 doc.save(out, CompressParameters.NO_COMPRESSION);
                 saved = out.toByteArray();

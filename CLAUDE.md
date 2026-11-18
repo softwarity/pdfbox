@@ -160,7 +160,14 @@ impact on the jar or image. The greenfield foundry entry point is
 
 Network-related tests use `CountingHttpServer` (local, counts requests) — no test may reach the
 real network. `PdfTestSupport` rasterises pages (colour pixel counts), lists embedded fonts/images and
-wraps veraPDF. `TransparencyConformanceTest` pins the documented PDF/A-1 transparency limitation.
+wraps veraPDF. `TransparencyConformanceTest` requires every transparency case to conform in all 8
+standards and checks the PDF/A-1 flattening visually (50 % red → pink, no `/SMask`).
+
+PDF/A-1 transparency is flattened in three layers (only when `standard.part() == 1`):
+`MediaTypes.flattenOnWhite` for raster images loaded by `RenderResources` (incl. `data:` inside SVG,
+which the sanitizer now hands to the inliner), `SvgTransparencyFlattener` for SVG opacities, and
+`neutralizeTransparency` in the post-pass as a safety net (CA/ca → 1, SMask → None, BM → Normal,
+transparency groups dropped).
 
 ## CI / release
 

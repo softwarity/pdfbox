@@ -41,7 +41,7 @@ public class HtmlNormalizer {
     }
 
     public org.w3c.dom.Document toW3c(String html) {
-        return toW3c(html, null);
+        return toW3c(html, null, false);
     }
 
     /**
@@ -49,7 +49,8 @@ public class HtmlNormalizer {
      *                   {@code data:} URI, or {@code null} when it cannot be resolved (see
      *                   {@link SvgSanitizer}); {@code null} drops every such reference
      */
-    public org.w3c.dom.Document toW3c(String html, UnaryOperator<String> svgInliner) {
+    public org.w3c.dom.Document toW3c(String html, UnaryOperator<String> svgInliner,
+                                      boolean flattenTransparency) {
         Document doc = Jsoup.parse(html == null ? "" : html);
 
         // Inline SVG: strip scripts and event handlers, inline external references, force the
@@ -57,7 +58,7 @@ public class HtmlNormalizer {
         // part of their parent's subtree).
         for (Element svg : doc.select("svg")) {
             if (svg.parents().stream().noneMatch(p -> p.normalName().equals("svg"))) {
-                svgSanitizer.sanitize(svg, svgInliner);
+                svgSanitizer.sanitize(svg, svgInliner, flattenTransparency);
             }
         }
 
