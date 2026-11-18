@@ -2,6 +2,10 @@
 
 ## NEXT RELEASE
 
+---
+
+## 2.0.0
+
 ### ⚠️ Breaking: remote resources are no longer fetched by default
 Until now any `http(s)://` URL in the HTML (images, stylesheets, `@font-face`, SVG) was fetched — and
 `file:`, `jar:` and `classpath:` URLs were read too. **Nothing is fetched anymore unless its host is
