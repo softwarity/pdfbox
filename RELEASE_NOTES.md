@@ -30,6 +30,9 @@ the missing resources in the `X-Pdfbox-Unresolved-Resources` / `X-Pdfbox-Unresol
   beyond `PDFBOX_RENDER_QUEUE_TIMEOUT` (10s) of waiting, `503` with `Retry-After`. Memory use is now
   bounded by this × the upload limit.
 - WebP images are converted to PNG (PDF cannot carry WebP).
+- **`X-Pdfbox-Engine`** response header on every PDF (`openhtmltopdf/1.1.114 pdfbox/3.0.8 batik/1.20`),
+  read from the jars that run, for clients to record next to the PDF. The PDF *Producer* carries the
+  same versions.
 - Helm chart: `fetch.*`, `upload.*` and `render.*` values.
 
 ### Changed

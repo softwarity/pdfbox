@@ -128,6 +128,14 @@ import { CodeComponent } from '../code/code.component';
     <app-code lang="text">X-Pdfbox-Unresolved-Count: 2
 X-Pdfbox-Unresolved-Resources: "sigwx.svg";reason=not-found, "https://tiles.example.org/fir.png";reason=not-allowed</app-code>
 
+    <h3 id="engine">Engine version</h3>
+    <p>
+      Every PDF response carries the versions of the libraries that laid it out, read from the jars that
+      actually run. Record it next to the PDF: a layout that changes after an upgrade can be traced to it.
+      The same versions are written in the PDF's <em>Producer</em>, so they also travel with the file.
+    </p>
+    <app-code lang="text">X-Pdfbox-Engine: openhtmltopdf/1.1.114 pdfbox/3.0.8 batik/1.20</app-code>
+
     <h3>GET /api/v1/standards</h3>
     <p>Returns the list of accepted <code>standard</code> values as a JSON array:</p>
     <app-code lang="json">[

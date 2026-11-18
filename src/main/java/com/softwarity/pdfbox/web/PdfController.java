@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
+import com.softwarity.pdfbox.pdf.EngineInfo;
 import com.softwarity.pdfbox.pdf.PdfAStandard;
 import com.softwarity.pdfbox.pdf.PdfGenerationService;
 import com.softwarity.pdfbox.pdf.StandardInfoService;
@@ -170,6 +171,7 @@ public class PdfController {
         ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(filename).build().toString())
+                .header(EngineInfo.HEADER, EngineInfo.header())
                 .contentType(MediaType.APPLICATION_PDF);
         if (onMissing == MissingResourcePolicy.REPORT) {
             response.header(UnresolvedResourcesHeader.COUNT, String.valueOf(result.unresolved().size()));
@@ -189,6 +191,7 @@ public class PdfController {
                 .build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header(EngineInfo.HEADER, EngineInfo.header())
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

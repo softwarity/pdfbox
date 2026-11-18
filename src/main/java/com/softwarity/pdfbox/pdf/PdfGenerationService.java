@@ -77,6 +77,7 @@ public class PdfGenerationService {
 
         PdfRendererBuilder builder = new PdfRendererBuilder();
         builder.useFastMode();
+        builder.withProducer(EngineInfo.producer());
         // SVG through Batik: no script, and Batik may only read data: URIs by itself — every other
         // reference has been resolved (or refused) and inlined beforehand. One drawer per render: it
         // holds the fonts and user agent of this document.

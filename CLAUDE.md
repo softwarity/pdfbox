@@ -138,6 +138,10 @@ The non-obvious mechanics, all learned the hard way (don't regress them):
   param (e.g. a bad `?standard=`), names the offending value and lists the accepted values via
   `getRequiredType().getEnumConstants()` — so it stays correct as standards are added. New user-input
   failure modes should map here, not bubble as 500s.
+- Every PDF response carries `X-Pdfbox-Engine` (`EngineInfo.header()`: openhtmltopdf / PDFBox / Batik
+  versions read from the classpath jars, never hard-coded); the same versions go into the PDF
+  *Producer* via `withProducer` (openhtmltopdf writes it to both Info and XMP, so PDF/A stays valid).
+  Error responses don't carry it.
 - `server.servlet.context-path` (`PDFBOX_BASE_PATH`) prefixes **every** route and is fixed at
   launch — it is not a per-request value.
 

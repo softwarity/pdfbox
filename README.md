@@ -130,6 +130,16 @@ X-Pdfbox-Unresolved-Count: 2
 X-Pdfbox-Unresolved-Resources: "sigwx.svg";reason=not-found, "https://tiles.example.org/fir.png";reason=not-allowed
 ```
 
+### Engine version
+
+Every PDF response carries the versions of the libraries that laid it out, read from the jars that
+actually run. Record it next to the PDF: a layout that changes after an upgrade can be traced to it.
+The same versions are written in the PDF's *Producer*, so they also travel with the file.
+
+```text
+X-Pdfbox-Engine: openhtmltopdf/1.1.114 pdfbox/3.0.8 batik/1.20
+```
+
 ### SVG
 
 Inline `<svg>` and attached / fetched `.svg` files are drawn as vector art (Apache Batik). Scripts and
