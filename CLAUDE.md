@@ -169,9 +169,11 @@ wraps veraPDF. `TransparencyConformanceTest` pins the documented PDF/A-1 transpa
 - `.github/workflows/ci.yml`: `mvn verify` on every push/PR, then builds & pushes a Docker image to
   Docker Hub (`docker.io/softwarity/pdfbox`) on push. Requires repo secrets `DOCKERHUB_USERNAME`
   and `DOCKERHUB_RW` (a Docker Hub Read & Write access token).
-- `.github/workflows/release.yml`: manual `workflow_dispatch` (bump = patch/minor/major) that runs
-  the `softwarity/release-flow@v1` action. It auto-detects `maven_docker` mode (pom.xml + Dockerfile
-  present), so in one commit on `main` it: derives the next `vX.Y.Z` from the latest tag, runs
+- `.github/workflows/release.yml`: manual `workflow_dispatch` (bump = patch/minor/major), serialized
+  by a `concurrency` group. It runs `mvn verify` first (no tag on a red main), then the
+  `softwarity/release-flow@v1` action with `language: maven_docker` (explicit),
+  `maven-image: maven:3-eclipse-temurin-25` and `helm-chart: helm/pdfbox` (auto-detection only looks at
+  `helm/Chart.yaml`; this syncs the chart `version` + `appVersion`). In one commit on `main` it: derives the next `vX.Y.Z` from the latest tag, runs
   `mvn versions:set` **in a Maven container** to sync `pom.xml`, renames `## NEXT RELEASE` →
   `## X.Y.Z` in `RELEASE_NOTES.md`, tags + pushes, publishes the GitHub Release, and reopens a fresh
   `## NEXT RELEASE`. The tag is pushed via the **`PAT_TOKEN`** secret wired into `actions/checkout`

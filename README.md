@@ -300,11 +300,12 @@ The published **artifact is the multi-arch Docker image** (`docker.io/softwarity
 1. Keep [`RELEASE_NOTES.md`](RELEASE_NOTES.md) up to date as you merge: write user-facing changes
    under the `## NEXT RELEASE` heading. That section becomes the published release notes.
 2. Run the **Release** workflow (Actions → Release → Run workflow) and pick `patch` / `minor` /
-   `major`. release-flow then, in one commit on `main`: computes the next `vX.Y.Z` from the latest
-   tag, **syncs `pom.xml`'s `<version>`** to it (auto-detected `maven_docker` mode — it runs
-   `mvn versions:set` in a Maven container, so no manual version bump and no local Java needed),
-   renames `## NEXT RELEASE` → `## X.Y.Z`, tags and pushes, publishes the GitHub Release, and reopens
-   a fresh `## NEXT RELEASE`.
+   `major`. It first runs `mvn verify` (a red `main` is never tagged), then release-flow, in one
+   commit on `main`: computes the next `vX.Y.Z` from the latest tag, **syncs `pom.xml`'s `<version>`**
+   (`maven_docker` mode, `mvn versions:set` in a `maven:3-eclipse-temurin-25` container), **syncs the
+   Helm chart** `helm/pdfbox/Chart.yaml` (`version` and `appVersion`, so `image.tag: ""` deploys the
+   released image), renames `## NEXT RELEASE` → `## X.Y.Z`, tags and pushes, publishes the GitHub
+   Release, and reopens a fresh `## NEXT RELEASE`.
 3. The pushed tag triggers **Docker release**, which runs `mvn verify` then builds and publishes the
    `amd64` + `arm64` image, tagged `latest`, `X.Y.Z` and `X.Y`.
 
