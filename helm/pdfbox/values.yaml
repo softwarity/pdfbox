@@ -47,6 +47,12 @@ upload:
   # PDFBOX_UPLOAD_MAX_TOTAL_SIZE — maximum size of the whole request. Keep resources.limits.memory
   # comfortably above (render.maxConcurrent x this value) + the JVM baseline.
   maxTotalSize: 50MB
+  # PDFBOX_UPLOAD_MEMORY_THRESHOLD — parts above this size go to a temporary file (under /tmp) for
+  # the duration of the request instead of memory. Empty = never written to disk (the default).
+  # Lowering it trades RAM for a writable /tmp: with a read-only root filesystem, mount an emptyDir
+  # (on disk, not medium: Memory — that would count against the pod's memory) at /tmp via
+  # extraVolumes / extraVolumeMounts.
+  memoryThreshold: ""
 
 serviceAccount:
   create: true

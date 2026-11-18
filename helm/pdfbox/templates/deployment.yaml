@@ -72,6 +72,10 @@ spec:
             - name: PDFBOX_UPLOAD_MAX_TOTAL_SIZE
               value: {{ .Values.upload.maxTotalSize | quote }}
             {{- end }}
+            {{- if and .Values.upload.memoryThreshold (not (hasKey .Values.env "PDFBOX_UPLOAD_MEMORY_THRESHOLD")) }}
+            - name: PDFBOX_UPLOAD_MEMORY_THRESHOLD
+              value: {{ .Values.upload.memoryThreshold | quote }}
+            {{- end }}
             {{- range $key, $val := .Values.env }}
             - name: {{ $key }}
               value: {{ $val | quote }}

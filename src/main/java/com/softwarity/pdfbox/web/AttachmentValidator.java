@@ -1,9 +1,12 @@
 package com.softwarity.pdfbox.web;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -64,8 +67,9 @@ class AttachmentValidator {
                 throw new PayloadTooLargeException("The upload exceeds " + maxTotalSize
                         + " bytes in total (PDFBOX_UPLOAD_MAX_TOTAL_SIZE).");
             }
-            byte[] data = bytes(part);
-            attachments.add(new Attachment(name, checkType(name, data), data));
+            // No copy of the upload: the attachment reads the part where the container keeps it
+            // (memory, or a temporary file above the memory threshold), only when it is rendered.
+            attachments.add(new Attachment(name, checkType(name, part), part.getSize(), part::getInputStream));
         }
         return Attachments.of(attachments);
     }
@@ -93,8 +97,11 @@ class AttachmentValidator {
         return part.getSize();
     }
 
-    /** The media type for {@code name}, after checking the content really is of that type. */
-    private static String checkType(String name, byte[] data) {
+    /**
+     * The media type for {@code name}, after checking the content really is of that type — on its
+     * first bytes (magic numbers), or streamed for a stylesheet; never by loading the whole file.
+     */
+    private static String checkType(String name, MultipartFile part) {
         int dot = name.lastIndexOf('.');
         String extension = dot < 0 ? "" : name.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
         String expected = ACCEPTED.get(extension);
@@ -102,10 +109,10 @@ class AttachmentValidator {
             throw new IllegalArgumentException("Unsupported attached file type '" + name + "'. Accepted: "
                     + "CSS (.css), images (.png, .jpg/.jpeg, .gif, .webp, .svg) and TrueType fonts (.ttf).");
         }
-        String actual = MediaTypes.sniff(data);
+        String actual = MediaTypes.sniff(head(part));
         switch (expected) {
             case "text/css" -> {
-                if (!isUtf8Text(data)) {
+                if (!isUtf8Text(part)) {
                     throw mismatch(name, "a UTF-8 text stylesheet", actual);
                 }
             }
@@ -138,26 +145,34 @@ class AttachmentValidator {
                 + (actual == null ? "is not a recognised type" : "looks like " + actual) + ").");
     }
 
-    private static boolean isUtf8Text(byte[] data) {
-        for (byte b : data) {
-            if (b == 0) {
-                return false;
-            }
-        }
-        try {
-            StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(data));
-            return true;
-        } catch (CharacterCodingException e) {
-            return false;
+    /** The first {@value #SNIFF_BYTES} bytes: enough for every magic number and an SVG root. */
+    private static byte[] head(MultipartFile part) {
+        try (InputStream in = part.getInputStream()) {
+            return in.readNBytes(SNIFF_BYTES);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
-    private static byte[] bytes(MultipartFile part) {
-        try {
-            return part.getBytes();
+    private static final int SNIFF_BYTES = 1024;
+
+    /** Streams the part through a strict UTF-8 decoder; a NUL byte also disqualifies it as CSS. */
+    private static boolean isUtf8Text(MultipartFile part) {
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        try (Reader reader = new InputStreamReader(part.getInputStream(), decoder)) {
+            char[] buffer = new char[8192];
+            for (int n; (n = reader.read(buffer)) != -1; ) {
+                for (int i = 0; i < n; i++) {
+                    if (buffer[i] == 0) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } catch (CharacterCodingException e) {
+            return false;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

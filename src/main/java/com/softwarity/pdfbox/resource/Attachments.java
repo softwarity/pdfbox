@@ -6,7 +6,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** The files attached to one render request, looked up by their plain name. */
 public final class Attachments {
@@ -42,11 +42,20 @@ public final class Attachments {
         return byName.values();
     }
 
-    /** The text of every text attachment (CSS / SVG), to scan for the scripts it needs fonts for. */
-    public String textContent() {
-        return byName.values().stream()
+    /**
+     * The text of each text attachment (CSS / SVG), read one at a time while iterating, to scan for
+     * the scripts it needs fonts for — never all of them in memory at once.
+     */
+    public Iterable<String> texts() {
+        return () -> byName.values().stream()
                 .filter(Attachment::isText)
-                .map(a -> new String(a.data(), StandardCharsets.UTF_8))
-                .collect(Collectors.joining("\n"));
+                .map(a -> new String(a.read(), StandardCharsets.UTF_8))
+                .iterator();
+    }
+
+    /** {@code first} (typically the HTML), then {@link #texts()}. */
+    public Iterable<String> textsAfter(String first) {
+        return () -> java.util.stream.Stream.concat(Stream.of(first == null ? "" : first),
+                java.util.stream.StreamSupport.stream(texts().spliterator(), false)).iterator();
     }
 }

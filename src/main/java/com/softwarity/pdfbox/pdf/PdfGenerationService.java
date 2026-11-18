@@ -2,7 +2,6 @@ package com.softwarity.pdfbox.pdf;
 
 import java.io.ByteArrayOutputStream;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
@@ -78,8 +77,9 @@ public class PdfGenerationService {
         // reference has been resolved (or refused) and inlined beforehand. One drawer per render: it
         // holds the fonts and user agent of this document.
         builder.useSVGDrawer(new BatikSVGDrawer(SvgScriptMode.SECURE, Set.of("data")));
-        String content = attachments.isEmpty() ? html : html + "\n" + attachments.textContent();
-        fontService.registerFonts(builder, content, mentionsSvg(content));
+        // The HTML, then each attached stylesheet / SVG read one at a time: the scripts they contain
+        // decide which faces are registered (and whether Batik gets them).
+        fontService.registerFonts(builder, attachments.textsAfter(html));
 
         // Every stylesheet, @font-face, image and SVG load goes through RenderResources. The stream
         // factories replace openhtmltopdf's defaults wholesale (no URL.openStream fallback for the
@@ -136,11 +136,6 @@ public class PdfGenerationService {
                 stream.setBoolean(COSName.INTERPOLATE, false);
             }
         }
-    }
-
-    /** Cheap pre-check: hand the bundled fonts to Batik only when the document may contain SVG. */
-    private static boolean mentionsSvg(String content) {
-        return content != null && content.toLowerCase(Locale.ROOT).contains("svg");
     }
 
     /**

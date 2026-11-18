@@ -206,6 +206,11 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
         };
     }
 
+    /**
+     * Loads a resource. Only remote fetches are cached (one request per URL and render): attached
+     * files are re-read from the upload when needed again rather than kept, so a render never holds
+     * every attachment's bytes at once; openhtmltopdf keeps its own cache of decoded images.
+     */
     private Loaded load(String resolved, int depth) {
         if (cache.containsKey(resolved)) {
             return cache.get(resolved);
@@ -218,7 +223,7 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
         Loaded raw = switch (schemeOf(resolved)) {
             case "data" -> loadData(resolved);
             case ATTACHMENT -> attachments.find(decode(resolved.substring(ATTACHMENT.length() + 1)))
-                    .map(a -> new Loaded(a.data(), a.mediaType()))
+                    .map(a -> new Loaded(a.read(), a.mediaType()))
                     .orElse(null);
             case "http", "https" -> loadRemote(resolved);
             default -> null; // refused by allow() before any load
@@ -234,7 +239,9 @@ public final class RenderResources implements FSUriResolver, FSStreamFactory {
                 result = null;
             }
         }
-        cache.put(resolved, result);
+        if (isHttp(schemeOf(resolved))) {
+            cache.put(resolved, result);
+        }
         return result;
     }
 

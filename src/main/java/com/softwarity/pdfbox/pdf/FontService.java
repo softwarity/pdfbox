@@ -238,21 +238,22 @@ public class FontService {
      * in {@code html}. Embeds only the glyphs actually used.
      */
     public void registerFonts(PdfRendererBuilder builder, String html) {
-        registerFonts(builder, html, false);
+        registerFonts(builder, List.of(html == null ? "" : html));
     }
 
     /**
-     * Same as {@link #registerFonts(PdfRendererBuilder, String)}; with {@code svg} the selected faces
-     * are also handed to the SVG drawer (Batik), so SVG text is drawn with the bundled faces instead
-     * of host fonts. Batik loads every face it is given on each render, hence opt-in: only documents
-     * that actually contain SVG pay for it.
-     *
-     * @param content the text to scan for scripts: the HTML plus any attached SVG/CSS/HTML text
+     * Same as {@link #registerFonts(PdfRendererBuilder, String)} for a document made of several texts
+     * — the HTML plus the attached stylesheets and SVGs — scanned one after the other (each can be
+     * released once scanned). When any of them mentions SVG, the selected faces are also handed to the
+     * SVG drawer (Batik), so SVG text is drawn with the bundled faces instead of host fonts; Batik
+     * loads every face it is given on each render, hence only documents with SVG pay for it.
      */
-    public void registerFonts(PdfRendererBuilder builder, String content, boolean svg) {
-        Set<String> activeScripts = detectScriptFamilies(content == null ? "" : content);
-        Set<FSFontUseCase> documentOnly = with(DOCUMENT_ONLY, svg);
-        Set<FSFontUseCase> documentAndFallback = with(DOCUMENT_AND_FALLBACK, svg);
+    public void registerFonts(PdfRendererBuilder builder, Iterable<String> texts) {
+        ScriptScan scan = new ScriptScan();
+        texts.forEach(scan::accept);
+        Set<String> activeScripts = scan.families();
+        Set<FSFontUseCase> documentOnly = with(DOCUMENT_ONLY, scan.svg);
+        Set<FSFontUseCase> documentAndFallback = with(DOCUMENT_AND_FALLBACK, scan.svg);
         faces.forEach(f -> {
             if (SCRIPT_FAMILY_NAMES.contains(f.family()) && !activeScripts.contains(f.family())) {
                 return; // a script font this document does not need — don't make openhtmltopdf parse it
@@ -274,30 +275,44 @@ public class FontService {
     }
 
     /**
-     * Scans the source for non-Latin scripts and returns the script families to enable. Latin /
-     * Cyrillic / Greek are always covered by the always-on families, so only codepoints {@code >=
-     * U+0530} are inspected. Shared CJK Han ideographs pick their JP/KR/SC/TC variant from {@code lang}.
+     * Accumulates, text by text, the non-Latin scripts present, the declared {@code lang}s and whether
+     * SVG is mentioned. Latin / Cyrillic / Greek are always covered by the always-on families, so only
+     * codepoints {@code >= U+0530} are inspected. Shared CJK Han ideographs pick their JP/KR/SC/TC
+     * variant from {@code lang}.
      */
-    private Set<String> detectScriptFamilies(String html) {
-        Set<String> active = new HashSet<>();
-        boolean han = false;
-        for (int i = 0, n = html.length(); i < n; ) {
-            int cp = html.codePointAt(i);
-            i += Character.charCount(cp);
-            if (cp < 0x0530) {
-                continue;
+    private static final class ScriptScan {
+        private final Set<String> active = new HashSet<>();
+        private final List<String> langs = new ArrayList<>();
+        private boolean han;
+        private boolean svg;
+
+        void accept(String text) {
+            if (text == null) {
+                return;
             }
-            if (isHan(cp)) {
-                han = true;
-            } else {
-                SCRIPT_FAMILIES.stream().filter(sf -> sf.covers().test(cp)).findFirst()
-                        .ifPresent(sf -> active.add(sf.family()));
+            for (int i = 0, n = text.length(); i < n; ) {
+                int cp = text.codePointAt(i);
+                i += Character.charCount(cp);
+                if (cp < 0x0530) {
+                    continue;
+                }
+                if (isHan(cp)) {
+                    han = true;
+                } else {
+                    SCRIPT_FAMILIES.stream().filter(sf -> sf.covers().test(cp)).findFirst()
+                            .ifPresent(sf -> active.add(sf.family()));
+                }
             }
+            LANG_ATTR.matcher(text).results().map(m -> m.group(1).toLowerCase(Locale.ROOT)).forEach(langs::add);
+            svg |= text.toLowerCase(Locale.ROOT).contains("svg");
         }
-        if (han) {
-            active.add(hanFamily(html));
+
+        Set<String> families() {
+            if (han) {
+                active.add(hanFamily(langs));
+            }
+            return active;
         }
-        return active;
     }
 
     private static boolean in(int cp, int lo, int hi) {
@@ -311,9 +326,7 @@ public class FontService {
     }
 
     /** Picks the CJK family for shared Han ideographs from the declared lang(s); defaults to Japanese. */
-    private static String hanFamily(String html) {
-        List<String> langs = LANG_ATTR.matcher(html).results()
-                .map(m -> m.group(1).toLowerCase(Locale.ROOT)).toList();
+    private static String hanFamily(List<String> langs) {
         if (langs.stream().anyMatch(l -> l.startsWith("ko"))) return "Noto Sans KR";
         if (langs.stream().anyMatch(l -> l.startsWith("ja"))) return "Noto Sans JP";
         if (langs.stream().anyMatch(FontService::isTraditionalChinese)) return "Noto Sans TC";

@@ -96,16 +96,16 @@ class StandardConformanceValidationTest {
                 + "<img src=\"logo.webp\" width=\"80\" height=\"40\" alt=\"Operator logo\"/>"
                 + "</body></html>";
         Attachments attachments = Attachments.of(List.of(
-                new Attachment("briefing.css", "text/css",
+                Attachment.ofBytes("briefing.css", "text/css",
                         ("body{font-family:'Noto Sans','Noto Sans Hebrew','Noto Sans Arabic','Noto Sans Thai',"
                                 + "'Noto Sans JP',sans-serif} h2{color:#0b3a8c}").getBytes(StandardCharsets.UTF_8)),
-                new Attachment("sigwx.svg", "image/svg+xml", ("<svg xmlns=\"http://www.w3.org/2000/svg\" "
+                Attachment.ofBytes("sigwx.svg", "image/svg+xml", ("<svg xmlns=\"http://www.w3.org/2000/svg\" "
                         + "width=\"300\" height=\"120\"><rect width=\"300\" height=\"120\" fill=\"#ffffff\" "
                         + "stroke=\"#000000\"/><circle cx=\"150\" cy=\"60\" r=\"40\" fill=\"#43a047\"/>"
                         + "<text x=\"120\" y=\"65\" font-size=\"16\">ISOL CB</text></svg>")
                         .getBytes(StandardCharsets.UTF_8)),
-                new Attachment("wind.png", "image/png", PdfTestSupport.png(300, 60, 0x2E7D32)),
-                new Attachment("logo.webp", "image/webp",
+                Attachment.ofBytes("wind.png", "image/png", PdfTestSupport.png(300, 60, 0x2E7D32)),
+                Attachment.ofBytes("logo.webp", "image/webp",
                         Files.readAllBytes(Path.of("src/test/resources/attachments/blue.webp")))));
 
         var result = pdfService.render(html, standard, attachments, MissingResourcePolicy.FAIL);

@@ -74,6 +74,9 @@ pdfbox:
     max-part-size: 20MB
     # PDFBOX_UPLOAD_MAX_TOTAL_SIZE: maximum size of the whole request.
     max-total-size: 50MB
+    # PDFBOX_UPLOAD_MEMORY_THRESHOLD: parts up to this size stay in memory; larger ones are written to
+    # a temporary file for the duration of the request. Unset = max-part-size: never written to disk.
+    # memory-threshold: 1MB
   # Remote resources (http/https images, stylesheets, fonts, SVG). Resolution order for anything the
   # HTML cites: an attached file by plain name, then a data: URI, then an http(s) URL whose host is
   # listed below. Everything else (file:, jar:, classpath:, other relative paths, unlisted hosts) is
