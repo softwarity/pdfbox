@@ -61,7 +61,7 @@ import { CodeComponent } from '../code/code.component';
     <app-code lang="text">POST  your HTML  ──►  pdfbox  ──►  PDF / PDF/A binary</app-code>
 
     <div class="callout">
-      <strong>Fully offline.</strong> No external services, no runtime configuration. A broad Noto
+      <strong>Fully offline.</strong> No external services, no configuration required, no network access unless you allow a host. A broad Noto
       font set and the sRGB colour profile are bundled, so multi-script PDF/A generation works the
       same on your laptop, in the jar and in the container. Distributed as a multi-arch Docker image
       for <code>linux/amd64</code> and <code>linux/arm64</code>.

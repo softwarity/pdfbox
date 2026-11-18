@@ -2,7 +2,7 @@
 
 A tiny, self-contained **Spring Boot** service that turns **HTML into PDF — including PDF/A**
 (PDF/A-1a, 1b, 2a, 2b, 2u, 3a, 3b, 3u). Push HTML (and the images, SVG charts, stylesheets and fonts
-it cites), get the PDF binary back. No external services, no runtime configuration, no network access
+it cites), get the PDF binary back. No external services, no configuration required, no network access
 unless you allow it, fonts bundled for offline generation of exotic scripts (Vietnamese, Hebrew,
 Arabic, Thai, Devanagari, Japanese/CJK…).
 
