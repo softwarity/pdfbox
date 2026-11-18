@@ -25,6 +25,7 @@ export class AppComponent {
     { path: '/', label: 'Getting started', icon: 'rocket_launch' },
     { path: '/endpoints', label: 'API & endpoints', icon: 'api' },
     { path: '/standards', label: 'PDF/A standards', icon: 'workspace_premium' },
+    { path: '/examples', label: 'Examples', icon: 'photo_library' },
     { path: '/fonts', label: 'Fonts & scripts', icon: 'language' },
     { path: '/configuration', label: 'Configuration', icon: 'settings' },
     { path: '/docker', label: 'Docker & architectures', icon: 'dns' },

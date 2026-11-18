@@ -167,6 +167,17 @@ real network. `PdfTestSupport` rasterises pages (colour pixel counts), lists emb
 wraps veraPDF. `TransparencyConformanceTest` requires every transparency case to conform in all 8
 standards and checks the PDF/A-1 flattening visually (50 % red → pink, no `/SMask`).
 
+`ShowcaseTest` renders the example documents of `src/test/resources/showcase/*.html` (shown in the
+README and the doc site's Examples page) with the production Noto font stack (set via
+`@SpringBootTest(properties=…)`, since the test yaml shadows it), and checks veraPDF conformance and
+the exact page sizes. `-Dshowcase.write=true` rewrites `docs/src/assets/showcase/` (HTML, PDF, PNG
+contact sheet); a PDF is only rewritten when its PNG changed (PDFs carry a date/ID). Learned while
+building it: with named pages (`page: x` + `@page x { size: … }`) openhtmltopdf lays blocks out
+against the **default** page's width — a block on a wider/narrower named page needs an explicit
+`width` (`theLandscapeTableSpansTheWholeLandscapePage` guards the documented workaround). Two known
+rendering gaps, left out of the showcase: Arabic is not shaped (no `openhtmltopdf-rtl-support`/ICU
+configured — letters come out isolated) and Indic conjuncts (Devanagari) are not formed.
+
 PDF/A-1 transparency is flattened in three layers (only when `standard.part() == 1`):
 `MediaTypes.flattenOnWhite` for raster images loaded by `RenderResources` (incl. `data:` inside SVG,
 which the sanitizer now hands to the inliner), `SvgTransparencyFlattener` for SVG opacities, and

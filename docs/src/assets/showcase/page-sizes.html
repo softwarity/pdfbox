@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Page sizes</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  @page a5 { size: A5; margin: 12mm; }
+  @page a3 { size: A3 landscape; margin: 20mm; }
+  @page letter { size: letter; margin: 0.75in; }
+  @page legal { size: legal landscape; margin: 0.75in; }
+  @page card { size: 85mm 55mm; margin: 5mm; }
+
+  body { color: #222; }
+  section { text-align: center; }
+  h1 { font-size: 26pt; color: #1f4e79; margin: 10mm 0 2mm; }
+  p { font-size: 11pt; color: #555; margin: 0; }
+  /* Blocks are laid out against the default page's width (A4): on a page of another size, give the
+     block the content width of that page (page width minus left and right margins). */
+  .a5 { page: a5; width: 124mm; }
+  .a3 { page: a3; width: 380mm; }
+  .letter { page: letter; width: 7in; }
+  .legal { page: legal; width: 12.5in; }
+  .card { page: card; width: 75mm; }
+  .card h1 { font-size: 14pt; margin: 6mm 0 1mm; }
+  .card p { font-size: 8pt; }
+</style>
+</head>
+<body>
+  <section><h1>A4</h1><p>@page { size: A4 } — 210 × 297 mm (default)</p></section>
+  <section class="a5"><h1>A5</h1><p>@page a5 { size: A5 } — 148 × 210 mm</p></section>
+  <section class="a3"><h1>A3 landscape</h1><p>@page a3 { size: A3 landscape } — 420 × 297 mm</p></section>
+  <section class="letter"><h1>US Letter</h1><p>@page letter { size: letter } — 8.5 × 11 in</p></section>
+  <section class="legal"><h1>US Legal landscape</h1><p>@page legal { size: legal landscape } — 14 × 8.5 in</p></section>
+  <section class="card"><h1>Business card</h1><p>@page card { size: 85mm 55mm }</p></section>
+</body>
+</html>

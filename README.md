@@ -13,6 +13,40 @@ POST  your HTML  ──►  pdfbox  ──►  PDF/A binary
 📖 **Full documentation:** <https://softwarity.github.io/pdfbox/> — getting started, the API & endpoints,
 PDF/A standards, fonts & scripts, configuration, Docker (amd64 / arm64) and a Kubernetes (Helm) guide.
 
+## Examples
+
+Real output of the service: every page of each PDF, at the same scale. Each example is
+[an HTML file](src/test/resources/showcase) rendered by the test suite (`ShowcaseTest`), which also
+checks the page sizes and the PDF/A conformance (veraPDF). More, with their sources, on the
+[Examples page](https://softwarity.github.io/pdfbox/#/examples).
+
+**Portrait and landscape in one document** — a named page (`page: wide` + `@page wide { size: A4 landscape }`)
+([PDF](docs/src/assets/showcase/orientation.pdf) · [HTML](docs/src/assets/showcase/orientation.html))
+
+[![A4 portrait, A4 landscape, A4 portrait](docs/src/assets/showcase/orientation.png)](docs/src/assets/showcase/orientation.pdf)
+
+**Page sizes** — A4, A5, A3 landscape, US Letter, US Legal landscape and a custom 85 × 55 mm card, in one PDF
+([PDF](docs/src/assets/showcase/page-sizes.pdf) · [HTML](docs/src/assets/showcase/page-sizes.html))
+
+[![A4, A5, A3 landscape, Letter, Legal landscape, business card](docs/src/assets/showcase/page-sizes.png)](docs/src/assets/showcase/page-sizes.pdf)
+
+**Headers, footers and page numbers** — running header, `Page n / total`, no header on the cover (PDF/A-3a)
+([PDF](docs/src/assets/showcase/headers-footers.pdf) · [HTML](docs/src/assets/showcase/headers-footers.html))
+
+[![Three A4 pages with running header and page numbers](docs/src/assets/showcase/headers-footers.png)](docs/src/assets/showcase/headers-footers.pdf)
+
+**Long table across landscape pages** — header row repeated on every page, rows never split
+([PDF](docs/src/assets/showcase/long-table.pdf) · [HTML](docs/src/assets/showcase/long-table.html))
+
+[![Four A4 landscape pages of a table](docs/src/assets/showcase/long-table.png)](docs/src/assets/showcase/long-table.pdf)
+
+> **Mixing page sizes:** blocks are laid out against the width of the *default* page. Give the block
+> that lands on a wider or narrower named page an explicit `width` (that page's width minus its
+> margins, e.g. `width: 267mm` for A4 landscape with 15 mm margins). A document that is landscape
+> throughout only needs `@page { size: A4 landscape }`.
+
+To regenerate the images after a rendering change: `mvn test -Dtest=ShowcaseTest -Dshowcase.write=true`.
+
 ## Quick start (Docker)
 
 ```bash

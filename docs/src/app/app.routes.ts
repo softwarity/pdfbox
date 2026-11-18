@@ -15,6 +15,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/standards.component').then((m) => m.StandardsComponent),
   },
   {
+    path: 'examples',
+    loadComponent: () => import('./pages/examples.component').then((m) => m.ExamplesComponent),
+  },
+  {
     path: 'fonts',
     loadComponent: () => import('./pages/fonts.component').then((m) => m.FontsComponent),
   },

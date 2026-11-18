@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Long table across landscape pages</title>
+<style>
+  @page {
+    size: A4 landscape;
+    margin: 14mm 14mm 16mm;
+    @bottom-right { content: "Page " counter(page) " / " counter(pages); font-size: 8pt; color: #888; }
+  }
+  body { font-size: 9pt; color: #222; }
+  h1 { font-size: 16pt; color: #1f4e79; margin: 0 0 4mm; }
+  /* openhtmltopdf extension: repeat <thead>/<tfoot> on every page the table spans. */
+  table { width: 100%; border-collapse: collapse; -fs-table-paginate: paginate; }
+  th { background: #1f4e79; color: #fff; text-align: left; padding: 1.8mm 2mm; }
+  td { padding: 1.4mm 2mm; border-bottom: 1px solid #ddd; }
+  tr { page-break-inside: avoid; }
+  tbody tr:nth-child(even) td { background: #f2f6fa; }
+  td.n { text-align: right; }
+  .ok { color: #2e7d32; } .late { color: #c62828; }
+</style>
+</head>
+<body>
+  <h1>Shipment register</h1>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Reference</th><th>Customer</th><th>Origin</th><th>Destination</th>
+        <th>Shipped</th><th>Delivered</th><th>Weight (kg)</th><th>Amount (€)</th><th>Status</th></tr>
+    </thead>
+    <tbody id="rows">
+      <tr><td class="n">1</td><td>SH-2026-1007</td><td>Soylent</td><td>Rotterdam</td><td>Hamburg</td><td>2026-07-21</td><td>2026-07-25</td><td class="n">4 429</td><td class="n">8 555.86</td><td class="late">Late</td></tr>
+      <tr><td class="n">2</td><td>SH-2026-1014</td><td>Cyberdyne</td><td>Paris</td><td>Prague</td><td>2026-04-02</td><td>2026-04-03</td><td class="n">612</td><td class="n">1 307.80</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">3</td><td>SH-2026-1021</td><td>Wonka</td><td>Antwerp</td><td>Paris</td><td>2026-10-04</td><td>2026-10-06</td><td class="n">546</td><td class="n">1 423.94</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">4</td><td>SH-2026-1028</td><td>Soylent</td><td>Paris</td><td>Milan</td><td>2026-01-18</td><td>2026-01-20</td><td class="n">1 221</td><td class="n">3 122.05</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">5</td><td>SH-2026-1035</td><td>Cyberdyne</td><td>Madrid</td><td>Prague</td><td>2026-11-06</td><td>2026-11-07</td><td class="n">1 579</td><td class="n">3 665.42</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">6</td><td>SH-2026-1042</td><td>Wayne Ent.</td><td>Dublin</td><td>Lyon</td><td>2026-10-02</td><td>2026-10-04</td><td class="n">4 395</td><td class="n">10 541.98</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">7</td><td>SH-2026-1049</td><td>Umbrella</td><td>Vienna</td><td>Warsaw</td><td>2026-08-12</td><td>2026-08-15</td><td class="n">1 512</td><td class="n">4 201.23</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">8</td><td>SH-2026-1056</td><td>Globex</td><td>Lyon</td><td>Warsaw</td><td>2026-05-17</td><td>2026-05-21</td><td class="n">3 716</td><td class="n">8 186.77</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">9</td><td>SH-2026-1063</td><td>Globex</td><td>Lyon</td><td>Prague</td><td>2026-07-06</td><td>2026-07-09</td><td class="n">4 045</td><td class="n">9 669.08</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">10</td><td>SH-2026-1070</td><td>Globex</td><td>Prague</td><td>Warsaw</td><td>2026-06-11</td><td>2026-06-14</td><td class="n">4 790</td><td class="n">13 965.96</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">11</td><td>SH-2026-1077</td><td>Tyrell</td><td>Lyon</td><td>Madrid</td><td>2026-08-23</td><td>2026-08-27</td><td class="n">2 576</td><td class="n">6 970.61</td><td class="late">Late</td></tr>
+      <tr><td class="n">12</td><td>SH-2026-1084</td><td>Globex</td><td>Madrid</td><td>Antwerp</td><td>2026-11-12</td><td>2026-11-13</td><td class="n">2 951</td><td class="n">6 006.08</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">13</td><td>SH-2026-1091</td><td>Tyrell</td><td>Vienna</td><td>Paris</td><td>2026-04-25</td><td>2026-04-28</td><td class="n">2 068</td><td class="n">4 874.39</td><td class="late">Late</td></tr>
+      <tr><td class="n">14</td><td>SH-2026-1098</td><td>Stark Ind.</td><td>Lyon</td><td>Hamburg</td><td>2026-08-13</td><td>2026-08-16</td><td class="n">3 566</td><td class="n">10 732.16</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">15</td><td>SH-2026-1105</td><td>Initech</td><td>Dublin</td><td>Antwerp</td><td>2026-06-22</td><td>2026-06-26</td><td class="n">1 276</td><td class="n">2 445.04</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">16</td><td>SH-2026-1112</td><td>Acme Corp</td><td>Milan</td><td>Lisbon</td><td>2026-04-01</td><td>2026-04-05</td><td class="n">1 533</td><td class="n">3 323.31</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">17</td><td>SH-2026-1119</td><td>Acme Corp</td><td>Hamburg</td><td>Antwerp</td><td>2026-09-12</td><td>2026-09-15</td><td class="n">4 262</td><td class="n">13 341.40</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">18</td><td>SH-2026-1126</td><td>Wonka</td><td>Vienna</td><td>Lisbon</td><td>2026-09-13</td><td>2026-09-17</td><td class="n">888</td><td class="n">2 197.03</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">19</td><td>SH-2026-1133</td><td>Globex</td><td>Paris</td><td>Milan</td><td>2026-02-07</td><td>2026-02-11</td><td class="n">2 825</td><td class="n">7 460.88</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">20</td><td>SH-2026-1140</td><td>Umbrella</td><td>Paris</td><td>Warsaw</td><td>2026-03-18</td><td>2026-03-19</td><td class="n">248</td><td class="n">470.81</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">21</td><td>SH-2026-1147</td><td>Globex</td><td>Warsaw</td><td>Antwerp</td><td>2026-03-21</td><td>2026-03-24</td><td class="n">3 023</td><td class="n">7 448.10</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">22</td><td>SH-2026-1154</td><td>Stark Ind.</td><td>Vienna</td><td>Dublin</td><td>2026-08-16</td><td>2026-08-22</td><td class="n">877</td><td class="n">2 499.05</td><td class="late">Late</td></tr>
+      <tr><td class="n">23</td><td>SH-2026-1161</td><td>Cyberdyne</td><td>Vienna</td><td>Hamburg</td><td>2026-09-01</td><td>2026-09-03</td><td class="n">4 367</td><td class="n">10 072.28</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">24</td><td>SH-2026-1168</td><td>Initech</td><td>Paris</td><td>Prague</td><td>2026-05-21</td><td>2026-05-22</td><td class="n">2 179</td><td class="n">5 503.62</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">25</td><td>SH-2026-1175</td><td>Wonka</td><td>Rotterdam</td><td>Milan</td><td>2026-09-18</td><td>2026-09-21</td><td class="n">1 638</td><td class="n">4 796.90</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">26</td><td>SH-2026-1182</td><td>Stark Ind.</td><td>Dublin</td><td>Milan</td><td>2026-04-17</td><td>2026-04-21</td><td class="n">277</td><td class="n">882.37</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">27</td><td>SH-2026-1189</td><td>Wayne Ent.</td><td>Vienna</td><td>Madrid</td><td>2026-04-23</td><td>2026-04-26</td><td class="n">2 903</td><td class="n">9 106.71</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">28</td><td>SH-2026-1196</td><td>Soylent</td><td>Lyon</td><td>Milan</td><td>2026-02-08</td><td>2026-02-12</td><td class="n">1 714</td><td class="n">4 243.37</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">29</td><td>SH-2026-1203</td><td>Umbrella</td><td>Paris</td><td>Vienna</td><td>2026-11-12</td><td>2026-11-13</td><td class="n">1 022</td><td class="n">3 141.31</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">30</td><td>SH-2026-1210</td><td>Globex</td><td>Vienna</td><td>Hamburg</td><td>2026-07-21</td><td>2026-07-27</td><td class="n">3 282</td><td class="n">8 035.73</td><td class="late">Late</td></tr>
+      <tr><td class="n">31</td><td>SH-2026-1217</td><td>Initech</td><td>Dublin</td><td>Hamburg</td><td>2026-03-05</td><td>2026-03-06</td><td class="n">3 852</td><td class="n">11 282.90</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">32</td><td>SH-2026-1224</td><td>Acme Corp</td><td>Warsaw</td><td>Dublin</td><td>2026-08-22</td><td>2026-08-25</td><td class="n">4 531</td><td class="n">8 986.68</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">33</td><td>SH-2026-1231</td><td>Umbrella</td><td>Dublin</td><td>Lisbon</td><td>2026-02-17</td><td>2026-02-19</td><td class="n">1 635</td><td class="n">4 834.07</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">34</td><td>SH-2026-1238</td><td>Wonka</td><td>Paris</td><td>Madrid</td><td>2026-04-10</td><td>2026-04-12</td><td class="n">2 710</td><td class="n">5 862.03</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">35</td><td>SH-2026-1245</td><td>Cyberdyne</td><td>Hamburg</td><td>Paris</td><td>2026-12-12</td><td>2026-12-16</td><td class="n">4 273</td><td class="n">10 207.68</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">36</td><td>SH-2026-1252</td><td>Initech</td><td>Hamburg</td><td>Prague</td><td>2026-03-17</td><td>2026-03-18</td><td class="n">1 540</td><td class="n">4 084.04</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">37</td><td>SH-2026-1259</td><td>Cyberdyne</td><td>Hamburg</td><td>Dublin</td><td>2026-08-20</td><td>2026-08-21</td><td class="n">2 710</td><td class="n">7 466.77</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">38</td><td>SH-2026-1266</td><td>Globex</td><td>Prague</td><td>Vienna</td><td>2026-02-18</td><td>2026-02-19</td><td class="n">2 308</td><td class="n">4 290.75</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">39</td><td>SH-2026-1273</td><td>Umbrella</td><td>Prague</td><td>Vienna</td><td>2026-09-01</td><td>2026-09-02</td><td class="n">4 181</td><td class="n">11 073.77</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">40</td><td>SH-2026-1280</td><td>Stark Ind.</td><td>Dublin</td><td>Madrid</td><td>2026-08-17</td><td>2026-08-21</td><td class="n">2 068</td><td class="n">5 746.78</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">41</td><td>SH-2026-1287</td><td>Umbrella</td><td>Prague</td><td>Milan</td><td>2026-08-05</td><td>2026-08-12</td><td class="n">3 661</td><td class="n">8 209.32</td><td class="late">Late</td></tr>
+      <tr><td class="n">42</td><td>SH-2026-1294</td><td>Wayne Ent.</td><td>Antwerp</td><td>Lyon</td><td>2026-04-22</td><td>2026-04-25</td><td class="n">1 305</td><td class="n">4 065.48</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">43</td><td>SH-2026-1301</td><td>Tyrell</td><td>Hamburg</td><td>Madrid</td><td>2026-03-15</td><td>2026-03-17</td><td class="n">811</td><td class="n">1 911.98</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">44</td><td>SH-2026-1308</td><td>Umbrella</td><td>Hamburg</td><td>Lisbon</td><td>2026-04-06</td><td>2026-04-10</td><td class="n">3 348</td><td class="n">7 615.91</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">45</td><td>SH-2026-1315</td><td>Acme Corp</td><td>Rotterdam</td><td>Dublin</td><td>2026-02-24</td><td>2026-02-28</td><td class="n">4 578</td><td class="n">11 180.11</td><td class="late">Late</td></tr>
+      <tr><td class="n">46</td><td>SH-2026-1322</td><td>Umbrella</td><td>Antwerp</td><td>Rotterdam</td><td>2026-09-20</td><td>2026-09-23</td><td class="n">566</td><td class="n">1 108.22</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">47</td><td>SH-2026-1329</td><td>Initech</td><td>Lyon</td><td>Dublin</td><td>2026-05-09</td><td>2026-05-10</td><td class="n">1 527</td><td class="n">3 326.76</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">48</td><td>SH-2026-1336</td><td>Wayne Ent.</td><td>Antwerp</td><td>Lisbon</td><td>2026-05-13</td><td>2026-05-15</td><td class="n">4 257</td><td class="n">11 063.23</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">49</td><td>SH-2026-1343</td><td>Acme Corp</td><td>Lyon</td><td>Madrid</td><td>2026-01-23</td><td>2026-01-25</td><td class="n">633</td><td class="n">1 377.72</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">50</td><td>SH-2026-1350</td><td>Wayne Ent.</td><td>Lisbon</td><td>Lyon</td><td>2026-05-03</td><td>2026-05-08</td><td class="n">1 036</td><td class="n">2 522.95</td><td class="late">Late</td></tr>
+      <tr><td class="n">51</td><td>SH-2026-1357</td><td>Initech</td><td>Prague</td><td>Antwerp</td><td>2026-05-20</td><td>2026-05-25</td><td class="n">1 993</td><td class="n">6 204.96</td><td class="late">Late</td></tr>
+      <tr><td class="n">52</td><td>SH-2026-1364</td><td>Stark Ind.</td><td>Madrid</td><td>Paris</td><td>2026-03-07</td><td>2026-03-10</td><td class="n">4 390</td><td class="n">12 569.88</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">53</td><td>SH-2026-1371</td><td>Acme Corp</td><td>Vienna</td><td>Prague</td><td>2026-11-06</td><td>2026-11-09</td><td class="n">188</td><td class="n">600.15</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">54</td><td>SH-2026-1378</td><td>Globex</td><td>Paris</td><td>Dublin</td><td>2026-12-17</td><td>2026-12-19</td><td class="n">2 052</td><td class="n">6 378.64</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">55</td><td>SH-2026-1385</td><td>Stark Ind.</td><td>Lisbon</td><td>Dublin</td><td>2026-07-22</td><td>2026-07-26</td><td class="n">3 260</td><td class="n">10 296.51</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">56</td><td>SH-2026-1392</td><td>Wayne Ent.</td><td>Dublin</td><td>Milan</td><td>2026-04-11</td><td>2026-04-13</td><td class="n">1 184</td><td class="n">2 802.03</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">57</td><td>SH-2026-1399</td><td>Wonka</td><td>Paris</td><td>Hamburg</td><td>2026-01-03</td><td>2026-01-06</td><td class="n">493</td><td class="n">945.71</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">58</td><td>SH-2026-1406</td><td>Initech</td><td>Prague</td><td>Lisbon</td><td>2026-05-20</td><td>2026-05-22</td><td class="n">410</td><td class="n">1 001.73</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">59</td><td>SH-2026-1413</td><td>Acme Corp</td><td>Madrid</td><td>Vienna</td><td>2026-01-09</td><td>2026-01-12</td><td class="n">4 521</td><td class="n">10 185.58</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">60</td><td>SH-2026-1420</td><td>Cyberdyne</td><td>Madrid</td><td>Milan</td><td>2026-06-06</td><td>2026-06-07</td><td class="n">727</td><td class="n">1 791.69</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">61</td><td>SH-2026-1427</td><td>Soylent</td><td>Lisbon</td><td>Milan</td><td>2026-04-17</td><td>2026-04-21</td><td class="n">775</td><td class="n">1 551.09</td><td class="late">Late</td></tr>
+      <tr><td class="n">62</td><td>SH-2026-1434</td><td>Cyberdyne</td><td>Paris</td><td>Antwerp</td><td>2026-01-10</td><td>2026-01-13</td><td class="n">732</td><td class="n">1 917.71</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">63</td><td>SH-2026-1441</td><td>Soylent</td><td>Hamburg</td><td>Lisbon</td><td>2026-12-20</td><td>2026-12-24</td><td class="n">4 088</td><td class="n">8 213.81</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">64</td><td>SH-2026-1448</td><td>Cyberdyne</td><td>Lisbon</td><td>Hamburg</td><td>2026-01-23</td><td>2026-01-27</td><td class="n">4 181</td><td class="n">8 341.22</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">65</td><td>SH-2026-1455</td><td>Wayne Ent.</td><td>Prague</td><td>Warsaw</td><td>2026-01-22</td><td>2026-01-27</td><td class="n">382</td><td class="n">758.78</td><td class="late">Late</td></tr>
+      <tr><td class="n">66</td><td>SH-2026-1462</td><td>Tyrell</td><td>Lyon</td><td>Antwerp</td><td>2026-08-18</td><td>2026-08-19</td><td class="n">4 393</td><td class="n">12 093.62</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">67</td><td>SH-2026-1469</td><td>Tyrell</td><td>Madrid</td><td>Paris</td><td>2026-08-03</td><td>2026-08-04</td><td class="n">581</td><td class="n">1 652.38</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">68</td><td>SH-2026-1476</td><td>Wonka</td><td>Madrid</td><td>Lyon</td><td>2026-05-08</td><td>2026-05-10</td><td class="n">3 811</td><td class="n">9 495.21</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">69</td><td>SH-2026-1483</td><td>Initech</td><td>Lyon</td><td>Vienna</td><td>2026-11-10</td><td>2026-11-11</td><td class="n">1 664</td><td class="n">3 175.68</td><td class="ok">Delivered</td></tr>
+      <tr><td class="n">70</td><td>SH-2026-1490</td><td>Acme Corp</td><td>Rotterdam</td><td>Madrid</td><td>2026-11-24</td><td>2026-11-27</td><td class="n">1 133</td><td class="n">2 059.18</td><td class="ok">Delivered</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>

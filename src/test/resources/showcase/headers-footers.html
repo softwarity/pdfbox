@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Headers, footers and page numbers</title>
+<style>
+  @page {
+    size: A4;
+    margin: 25mm 18mm 22mm;
+    /* A running element (see #header below) placed in the top margin of every page. */
+    @top-center { content: element(header); }
+    /* Generated content in the margin boxes: page counters. */
+    @bottom-left { content: "Confidential — internal use"; font-size: 8pt; color: #888; }
+    @bottom-right { content: "Page " counter(page) " / " counter(pages); font-size: 8pt; color: #888; }
+  }
+  /* The first page has no header. */
+  @page :first { @top-center { content: none; } }
+
+  #header { position: running(header); width: 100%; border-bottom: 1px solid #1f4e79;
+    font-size: 8.5pt; color: #1f4e79; padding-bottom: 1.5mm; }
+  #header .right { float: right; }
+
+  body { font-size: 10.5pt; line-height: 1.45; color: #222; }
+  h1 { font-size: 22pt; color: #1f4e79; margin: 30mm 0 3mm; }
+  .subtitle { color: #666; font-size: 12pt; margin-bottom: 20mm; }
+  h2 { font-size: 13pt; color: #1f4e79; page-break-after: avoid; margin-top: 7mm; }
+  .chapter { page-break-before: always; }
+  .chapter h2:first-child { margin-top: 0; }
+</style>
+</head>
+<body>
+  <div id="header">Technical specification<span class="right">rev. 4</span></div>
+
+  <h1>Technical specification</h1>
+  <div class="subtitle">Cover page: <code>@page :first</code> removes the running header here.</div>
+  <p>Every following page carries a header taken from an element of the document
+    (<code>position: running(header)</code>, placed with <code>content: element(header)</code>), a fixed
+    footer on the left, and <code>Page counter(page) / counter(pages)</code> on the right.</p>
+
+  <div class="chapter">
+    <h2>1. Scope</h2>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer posuere erat a ante venenatis
+      dapibus posuere velit aliquet. Cras mattis consectetur purus sit amet fermentum. Donec ullamcorper
+      nulla non metus auctor fringilla. Nullam quis risus eget urna mollis ornare vel eu leo.</p>
+    <p>Aenean lacinia bibendum nulla sed consectetur. Maecenas faucibus mollis interdum. Vivamus
+      sagittis lacus vel augue laoreet rutrum faucibus dolor auctor. Curabitur blandit tempus porttitor.
+      Etiam porta sem malesuada magna mollis euismod.</p>
+    <h2>2. Definitions</h2>
+    <p>Sed posuere consectetur est at lobortis. Morbi leo risus, porta ac consectetur ac, vestibulum at
+      eros. Praesent commodo cursus magna, vel scelerisque nisl consectetur et. Duis mollis, est non
+      commodo luctus, nisi erat porttitor ligula, eget lacinia odio sem nec elit.</p>
+  </div>
+
+  <div class="chapter">
+    <h2>3. Requirements</h2>
+    <p>Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo
+      sit amet risus. Nulla vitae elit libero, a pharetra augue. Donec id elit non mi porta gravida at
+      eget metus. Vestibulum id ligula porta felis euismod semper.</p>
+    <p>Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Etiam
+      porta sem malesuada magna mollis euismod. Maecenas sed diam eget risus varius blandit sit amet non
+      magna.</p>
+  </div>
+</body>
+</html>
