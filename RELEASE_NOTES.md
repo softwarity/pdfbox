@@ -2,6 +2,10 @@
 
 ## NEXT RELEASE
 
+---
+
+## 2.1.0
+
 ### Added
 - **Embedded files (`<a href="…" download="…">`).** In `PDF_A_3A/3B/3U`, `PDF_UA_1` and `NONE`, a link
   with a `download` attribute embeds the file it points to (an attached file or a `data:` URI). Its
